@@ -1,0 +1,13 @@
+dacite==1.8.1
+dependency-injector==4.42.0
+flake8==7.1.1
+Flask==3.0.3
+gcp-microservice-utils==0.2.3
+google-cloud-firestore==2.18.0
+gunicorn==23.0.0
+marshmallow==3.22.0
+marshmallow_dataclass==8.7.1
+mypy==1.11.2
+passlib==1.7.4
+PyJWT[crypto]==2.9.0
+types-passlib==1.7.7.20240819
