@@ -1,6 +1,7 @@
 version: 2.1
 orbs:
   python: circleci/python@2.1.1
+  gcp-cli: circleci/gcp-cli@3.2.2
 
 commands:
   sonarcloud-scan:
@@ -73,7 +74,38 @@ jobs:
           when: always
       - sonarcloud-scan
 
+  deploy-dev:
+    machine:
+      image: ubuntu-2204:current
+    resource_class: medium
+    steps:
+      - checkout
+      - run :
+          name: Build container image
+          command: docker build -t $DEV_GCP_REPO_HOST/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1 .
+      - gcp-cli/setup:
+          use_oidc: true
+          google_project_id: DEV_GCP_PROJECT_ID
+          google_project_number: DEV_GCP_PROJECT_NUMBER
+          workload_identity_pool_id: DEV_GCP_WIP_ID
+          workload_identity_pool_provider_id: DEV_GCP_WIP_PROVIDER_ID
+          service_account_email: DEV_GCP_SERVICE_ACCOUNT_EMAIL
+      - run:
+          name: Setup Docker credentials
+          command: gcloud auth configure-docker $DEV_GCP_REPO_HOST
+      - run:
+          name: Upload container image
+          command: docker push $DEV_GCP_REPO_HOST/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1
+
 workflows:
   cicd:
     jobs:
       - build-test
+      - deploy-dev:
+          context: gcp
+          requires:
+            - build-test
+          filters:
+            branches:
+              only:
+                - develop
