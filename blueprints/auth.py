@@ -38,8 +38,8 @@ class AuthEmployee(MethodView):
     def post(
         self,
         employee_repo: EmployeeRepository = Provide[Container.employee_repo],
-        jwt_issuer: str = Provide[Container.config.jwt.issuer],
-        jwt_private_key: str = Provide[Container.config.jwt.private_key]
+        jwt_issuer: str = Provide[Container.config.jwt.issuer.required()],
+        jwt_private_key: str = Provide[Container.config.jwt.private_key.required()]
     ) -> Response:
         auth_schema = marshmallow_dataclass.class_schema(AuthBody)()
         req_json = request.get_json(silent=True)

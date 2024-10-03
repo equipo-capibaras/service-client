@@ -5,20 +5,27 @@ from containers import Container
 from blueprints import BlueprintHealth, BlueprintAuth, BlueprintReset
 
 
-def create_app() -> Flask:
+class FlaskMicroservice(Flask):
+    container: Container
+
+
+def create_app() -> FlaskMicroservice:
     if os.getenv('ENABLE_CLOUD_LOGGING') == '1':
         setup_cloud_logging()
 
-    container = Container()
-    container.config.firestore.database.from_env("FIRESTORE_DATABASE", "(default)")
-    container.config.jwt.issuer.from_env("JWT_ISSUER", required=True)
-    container.config.jwt.private_key.from_env(
-        "JWT_PRIVATE_KEY",
-        required=True,
-        as_= lambda x: '-----BEGIN PRIVATE KEY-----\n' + x + '\n-----END PRIVATE KEY-----\n'
-    )
+    app = FlaskMicroservice(__name__)
+    app.container = Container()
 
-    app = Flask(__name__)
+    app.container.config.firestore.database.from_env("FIRESTORE_DATABASE", "(default)")
+
+    if 'JWT_ISSUER' in os.environ:
+        app.container.config.jwt.issuer.from_env("JWT_ISSUER")
+
+    if 'JWT_PRIVATE_KEY' in os.environ:
+        app.container.config.jwt.private_key.from_env(
+            "JWT_PRIVATE_KEY",
+            as_= lambda x: None if x is None else '-----BEGIN PRIVATE KEY-----\n' + x + '\n-----END PRIVATE KEY-----\n'
+        )
 
     if os.getenv('ENABLE_CLOUD_TRACE') == '1':
         setup_cloud_trace(app)
