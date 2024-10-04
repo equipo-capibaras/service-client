@@ -9,7 +9,7 @@ from repositories import ClientRepository
 blp = Blueprint("Reset database", __name__)
 
 
-@class_route(blp, "/api/v1/reset/company")
+@class_route(blp, "/api/v1/reset/client")
 class ResetDB(MethodView):
     init_every_request = False
 

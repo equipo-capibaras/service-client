@@ -5,7 +5,7 @@ from .util import class_route, json_response
 blp = Blueprint("Health Check", __name__)
 
 
-@class_route(blp, "/api/v1/health/company")
+@class_route(blp, "/api/v1/health/client")
 class HealthCheck(MethodView):
     init_every_request = False
 
