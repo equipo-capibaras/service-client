@@ -82,7 +82,7 @@ jobs:
       - checkout
       - run :
           name: Build container image
-          command: docker build -t $DEV_GCP_REPO_HOST/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1 .
+          command: docker build -t $DEV_GCP_REGION-docker.pkg.dev/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1 .
       - gcp-cli/setup:
           use_oidc: true
           google_project_id: DEV_GCP_PROJECT_ID
@@ -92,10 +92,13 @@ jobs:
           service_account_email: DEV_GCP_SERVICE_ACCOUNT_EMAIL
       - run:
           name: Setup Docker credentials
-          command: gcloud auth configure-docker $DEV_GCP_REPO_HOST
+          command: gcloud auth configure-docker $DEV_GCP_REGION-docker.pkg.dev
       - run:
           name: Upload container image
-          command: docker push $DEV_GCP_REPO_HOST/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1
+          command: docker push $DEV_GCP_REGION-docker.pkg.dev/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1
+      - run:
+          name: Deploy to Cloud Run
+          command: gcloud run deploy client --region $DEV_GCP_REGION --image=$DEV_GCP_REGION-docker.pkg.dev/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1
 
 workflows:
   cicd:
