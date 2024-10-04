@@ -1,18 +1,12 @@
+# Enables the Cloud Run API for the project.
 resource "google_project_service" "cloudrun" {
   service = "run.googleapis.com"
 
+  # Prevents the API from being disabled when the resource is destroyed.
   disable_on_destroy = false
 }
 
-data "google_iam_policy" "default" {
-  binding {
-    role = "roles/run.invoker"
-    members = [
-      data.google_service_account.apigateway.member
-    ]
-  }
-}
-
+# Creates a Cloud Run service for this microservice.
 resource "google_cloud_run_v2_service" "default" {
   name     = local.service_name
   location = local.region
@@ -70,6 +64,7 @@ resource "google_cloud_run_v2_service" "default" {
         }
       }
 
+      # CPU is only allocated when processing requests
       resources {
         cpu_idle = true
         startup_cpu_boost = true
@@ -86,6 +81,16 @@ resource "google_cloud_run_v2_service" "default" {
   }
 
   depends_on = [ google_project_service.cloudrun ]
+}
+
+# Allows the API Gateway service account to invoke this microservice.
+data "google_iam_policy" "default" {
+  binding {
+    role = "roles/run.invoker"
+    members = [
+      data.google_service_account.apigateway.member
+    ]
+  }
 }
 
 resource "google_cloud_run_v2_service_iam_policy" "default" {
