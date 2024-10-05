@@ -1,6 +1,5 @@
 version: 2.1
 orbs:
-  python: circleci/python@2.1.1
   gcp-cli: circleci/gcp-cli@3.2.2
 
 commands:
@@ -66,15 +65,14 @@ commands:
 
 jobs:
   build-test:
-    executor:
-      name: python/default
-      tag: "3.12"
+    docker:
+      - image: cimg/python:3.12
     resource_class: medium
     steps:
       - checkout
-      - python/install-packages:
-          pkg-manager: pip
-          pypi-cache: false
+      - run:
+          name: Install dependencies
+          command: pip install -r requirements.txt
       - run:
           name: Lint (flake8)
           command: flake8
