@@ -88,6 +88,9 @@ jobs:
             coverage xml
             coverage report
           when: always
+      - store_test_results:
+          path: ./junit.xml
+          when: always
       - sonarcloud-scan
 
   deploy-dev:

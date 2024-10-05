@@ -12,3 +12,4 @@ mypy==1.11.2
 passlib==1.7.4
 PyJWT[crypto]==2.9.0
 types-passlib==1.7.7.20240819
+unittest-xml-reporting==3.2.0
