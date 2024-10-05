@@ -27,7 +27,7 @@ commands:
           name: SonarCloud Scan
           command: |
             set -e
-            VERSION=6.2.0.4584
+            VERSION=6.2.1.4610
             SONAR_TOKEN=$<<parameters.sonar_token_variable_name>>
             SCANNER_DIRECTORY=/tmp/cache/scanner
             export SONAR_USER_HOME=$SCANNER_DIRECTORY/.sonar
@@ -38,9 +38,27 @@ commands:
             if [[ ! -x "$SCANNER_DIRECTORY/sonar-scanner-$VERSION-$OS-$ARCH/bin/sonar-scanner" ]]; then
               curl -Ol https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$VERSION-$OS-$ARCH.zip
               unzip -qq -o sonar-scanner-cli-$VERSION-$OS-$ARCH.zip -d $SCANNER_DIRECTORY
+              rm sonar-scanner-cli-$VERSION-$OS-$ARCH.zip
 
               chmod +x $SCANNER_DIRECTORY/sonar-scanner-$VERSION-$OS-$ARCH/bin/sonar-scanner
               chmod +x $SCANNER_DIRECTORY/sonar-scanner-$VERSION-$OS-$ARCH/jre/bin/java
+            fi
+
+            API_URL="https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pulls?head=${CIRCLE_PROJECT_USERNAME}:${CIRCLE_BRANCH}"
+
+            RESPONSE=$(curl -s -H "Accept: application/vnd.github+json" "${API_URL}")
+
+            PR_COUNT=$(echo "${RESPONSE}" | jq '. | length')
+
+            if [[ "${PR_COUNT}" -eq 0 ]]; then
+              echo "No pull requests found for branch '${CIRCLE_BRANCH}'. Skipping pull request analysis."
+            elif [[ "${PR_COUNT}" -eq 1 ]]; then
+              PR_NUMBER=$(echo "${RESPONSE}" | jq -r '.[0].number')
+              PR_BASE_BRANCH=$(echo "${RESPONSE}" | jq -r '.[0].base.ref')
+              echo "Pull request number for branch '${CIRCLE_BRANCH}': ${PR_NUMBER}"
+              export SONARQUBE_SCANNER_PARAMS="{\"sonar.pullrequest.key\":\"${PR_NUMBER}\",\"sonar.pullrequest.branch\":\"${CIRCLE_BRANCH}\",\"sonar.pullrequest.base\":\"${PR_BASE_BRANCH}\"}"
+            else
+              echo "Warning: ${PR_COUNT} pull requests found for branch '${CIRCLE_BRANCH}'. Skipping pull request analysis."
             fi
 
             cd <<parameters.project_root>>
