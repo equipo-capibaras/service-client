@@ -27,7 +27,7 @@ commands:
           name: SonarCloud Scan
           command: |
             set -e
-            VERSION=6.2.0.4584
+            VERSION=6.2.1.4610
             SONAR_TOKEN=$<<parameters.sonar_token_variable_name>>
             SCANNER_DIRECTORY=/tmp/cache/scanner
             export SONAR_USER_HOME=$SCANNER_DIRECTORY/.sonar
@@ -60,8 +60,6 @@ commands:
             else
               echo "Warning: ${PR_COUNT} pull requests found for branch '${CIRCLE_BRANCH}'. Skipping pull request analysis."
             fi
-
-            echo $SONARQUBE_SCANNER_PARAMS
 
             cd <<parameters.project_root>>
             $SCANNER_DIRECTORY/sonar-scanner-$VERSION-$OS-$ARCH/bin/sonar-scanner
