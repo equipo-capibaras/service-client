@@ -93,6 +93,76 @@ jobs:
           when: always
       - sonarcloud-scan
 
+  plan-dev-infra:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - gcp-cli/setup:
+          use_oidc: true
+          google_project_id: GCP_PROJECT_ID
+          google_project_number: GCP_PROJECT_NUMBER
+          workload_identity_pool_id: GCP_WIP_ID
+          workload_identity_pool_provider_id: GCP_WIP_PROVIDER_ID
+          service_account_email: GCP_SERVICE_ACCOUNT_EMAIL
+      - run:
+          name: Install Terraform
+          command: |
+            wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+            sudo apt update && sudo apt install terraform
+      - checkout
+      - run:
+          name: Initialize Terraform
+          working_directory: terraform
+          command: terraform init -backend-config "bucket=$TF_BUCKET"
+      - run:
+          name: Plan Terraform
+          working_directory: terraform
+          command: terraform plan -lock=false -out=tf.plan
+      - run:
+          name: Save Terraform plan
+          command: |
+            mkdir -p /tmp/workspace/tf-plan
+            cp terraform/tf.plan /tmp/workspace/tf-plan/tf.plan
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - tf-plan
+
+  deploy-dev-infra:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - gcp-cli/setup:
+          use_oidc: true
+          google_project_id: GCP_PROJECT_ID
+          google_project_number: GCP_PROJECT_NUMBER
+          workload_identity_pool_id: GCP_WIP_ID
+          workload_identity_pool_provider_id: GCP_WIP_PROVIDER_ID
+          service_account_email: GCP_SERVICE_ACCOUNT_EMAIL
+      - run:
+          name: Install Terraform
+          command: |
+            wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+            sudo apt update && sudo apt install terraform
+      - checkout
+      - attach_workspace:
+          at: workspace
+      - run:
+          name: Load Terraform plan
+          command: cp workspace/tf-plan/tf.plan terraform/tf.plan
+      - run:
+          name: Initialize Terraform
+          working_directory: terraform
+          command: terraform init -backend-config "bucket=$TF_BUCKET"
+      - run:
+          name: Apply Terraform plan
+          working_directory: terraform
+          command: terraform apply tf.plan
+
   deploy-dev:
     machine:
       image: ubuntu-2204:current
@@ -101,31 +171,46 @@ jobs:
       - checkout
       - run :
           name: Build container image
-          command: docker build -t $DEV_GCP_REGION-docker.pkg.dev/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1 .
+          command: docker build -t $GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$GCP_REPO_NAME/service-client:$CIRCLE_SHA1 .
       - gcp-cli/setup:
           use_oidc: true
-          google_project_id: DEV_GCP_PROJECT_ID
-          google_project_number: DEV_GCP_PROJECT_NUMBER
-          workload_identity_pool_id: DEV_GCP_WIP_ID
-          workload_identity_pool_provider_id: DEV_GCP_WIP_PROVIDER_ID
-          service_account_email: DEV_GCP_SERVICE_ACCOUNT_EMAIL
+          google_project_id: GCP_PROJECT_ID
+          google_project_number: GCP_PROJECT_NUMBER
+          workload_identity_pool_id: GCP_WIP_ID
+          workload_identity_pool_provider_id: GCP_WIP_PROVIDER_ID
+          service_account_email: GCP_SERVICE_ACCOUNT_EMAIL
       - run:
           name: Setup Docker credentials
-          command: gcloud auth configure-docker $DEV_GCP_REGION-docker.pkg.dev
+          command: gcloud auth configure-docker $GCP_REGION-docker.pkg.dev
       - run:
           name: Upload container image
-          command: docker push $DEV_GCP_REGION-docker.pkg.dev/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1
+          command: docker push $GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$GCP_REPO_NAME/service-client:$CIRCLE_SHA1
       - run:
           name: Deploy to Cloud Run
-          command: gcloud run deploy client --region $DEV_GCP_REGION --image=$DEV_GCP_REGION-docker.pkg.dev/$DEV_GCP_PROJECT_ID/$DEV_GCP_REPO_NAME/service-client:$CIRCLE_SHA1
+          command: gcloud run deploy client --region $GCP_REGION --image=$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$GCP_REPO_NAME/service-client:$CIRCLE_SHA1
 
 workflows:
   cicd:
     jobs:
       - build-test
-      - deploy-dev:
-          context: gcp
+      - plan-dev-infra:
+          context: gcp-dev
+          filters:
+            branches:
+              ignore:
+                - main
+      - deploy-dev-infra:
+          context: terraform-dev
           requires:
+            - plan-dev-infra
+          filters:
+            branches:
+              only:
+                - develop
+      - deploy-dev:
+          context: gcp-dev
+          requires:
+            - deploy-dev-infra
             - build-test
           filters:
             branches:
