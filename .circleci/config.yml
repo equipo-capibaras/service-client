@@ -130,6 +130,43 @@ jobs:
           paths:
             - tf-plan
 
+  plan-prod-infra:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - gcp-cli/setup:
+          use_oidc: true
+          google_project_id: GCP_PROJECT_ID
+          google_project_number: GCP_PROJECT_NUMBER
+          workload_identity_pool_id: GCP_WIP_ID
+          workload_identity_pool_provider_id: GCP_WIP_PROVIDER_ID
+          service_account_email: GCP_SERVICE_ACCOUNT_EMAIL
+      - run:
+          name: Install Terraform
+          command: |
+            wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+            echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+            sudo apt update && sudo apt install terraform
+      - checkout
+      - run:
+          name: Initialize Terraform
+          working_directory: terraform
+          command: terraform init -backend-config "bucket=$TF_BUCKET"
+      - run:
+          name: Plan Terraform
+          working_directory: terraform
+          command: terraform plan -lock=false -out=tf.plan
+      - run:
+          name: Save Terraform plan
+          command: |
+            mkdir -p /tmp/workspace/tf-plan
+            cp terraform/tf.plan /tmp/workspace/tf-plan/tf.plan
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - tf-plan
+
   deploy-dev-infra:
     docker:
       - image: cimg/base:current
@@ -199,6 +236,12 @@ workflows:
             branches:
               ignore:
                 - main
+      - plan-prod-infra:
+          context: gcp-prod
+          filters:
+            branches:
+              only:
+                - develop
       - deploy-dev-infra:
           context: terraform-dev
           requires:
