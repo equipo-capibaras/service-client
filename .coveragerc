@@ -1,5 +1,4 @@
 [run]
 command_line = -m xmlrunner -v --output-file junit.xml
 branch = True
-relative_files = True
 omit = tests/*
