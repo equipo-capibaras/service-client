@@ -1,6 +1,7 @@
 coverage==7.6.1
 dacite==1.8.1
 dependency-injector==4.42.0
+Faker==30.3.0
 Flask==3.0.3
 gcp-microservice-utils==0.2.3
 google-cloud-firestore==2.19.0
@@ -12,4 +13,5 @@ passlib==1.7.4
 PyJWT[crypto]==2.9.0
 ruff==0.6.9
 types-passlib==1.7.7.20240819
+unittest-parametrize==1.4.0
 unittest-xml-reporting==3.2.0

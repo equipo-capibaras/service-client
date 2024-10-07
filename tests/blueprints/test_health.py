@@ -9,4 +9,6 @@ class TestHealth(TestCase):
         self.client = app.test_client()
 
     def test_health(self) -> None:
-        self.assertEqual(0, 1 - 1)
+        resp = self.client.get('/api/v1/health/client')
+
+        self.assertEqual(resp.status_code, 200)
