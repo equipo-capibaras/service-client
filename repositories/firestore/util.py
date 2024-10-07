@@ -1,4 +1,8 @@
-from typing import Generator
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 from google.cloud.firestore_v1 import CollectionReference, DocumentReference
 
 

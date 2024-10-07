@@ -6,4 +6,4 @@ class Client:
     id: str
     name: str
     plan: str
-    emailIncidents: str
+    email_incidents: str

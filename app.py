@@ -1,8 +1,10 @@
 import os
+
 from flask import Flask
-from gcp_microservice_utils import setup_cloud_logging, setup_cloud_trace, setup_apigateway
+from gcp_microservice_utils import setup_apigateway, setup_cloud_logging, setup_cloud_trace
+
+from blueprints import BlueprintAuth, BlueprintHealth, BlueprintReset
 from containers import Container
-from blueprints import BlueprintHealth, BlueprintAuth, BlueprintReset
 
 
 class FlaskMicroservice(Flask):
@@ -16,15 +18,15 @@ def create_app() -> FlaskMicroservice:
     app = FlaskMicroservice(__name__)
     app.container = Container()
 
-    app.container.config.firestore.database.from_env("FIRESTORE_DATABASE", "(default)")
+    app.container.config.firestore.database.from_env('FIRESTORE_DATABASE', '(default)')
 
     if 'JWT_ISSUER' in os.environ:
-        app.container.config.jwt.issuer.from_env("JWT_ISSUER")
+        app.container.config.jwt.issuer.from_env('JWT_ISSUER')
 
     if 'JWT_PRIVATE_KEY' in os.environ:
         app.container.config.jwt.private_key.from_env(
-            "JWT_PRIVATE_KEY",
-            as_= lambda x: None if x is None else '-----BEGIN PRIVATE KEY-----\n' + x + '\n-----END PRIVATE KEY-----\n'
+            'JWT_PRIVATE_KEY',
+            as_=lambda x: None if x is None else '-----BEGIN PRIVATE KEY-----\n' + x + '\n-----END PRIVATE KEY-----\n',
         )
 
     if os.getenv('ENABLE_CLOUD_TRACE') == '1':

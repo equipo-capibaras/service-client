@@ -1,16 +1,19 @@
 import logging
-from google.cloud.firestore import Client as FirestoreClient  # type: ignore
-from repositories import EmployeeRepository
-from .util import delete_collection_recursive
+
+from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
+
 import demo
+from repositories import EmployeeRepository
+
+from .util import delete_collection_recursive
 
 
 class FirestoreClientRepository(EmployeeRepository):
-    def __init__(self, database: str):
+    def __init__(self, database: str) -> None:
         self.db = FirestoreClient(database=database)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def reset(self, load_demo_data: bool = False) -> None:
+    def reset(self, *, load_demo_data: bool = False) -> None:
         delete_collection_recursive(self.db.collection('clients'))
 
         self.logger.info('Database cleared.')

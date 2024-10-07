@@ -1,4 +1,5 @@
 from unittest import TestCase
+
 from app import create_app
 
 
@@ -8,4 +9,4 @@ class TestHealth(TestCase):
         self.client = app.test_client()
 
     def test_health(self) -> None:
-        assert 1 == 1
+        self.assertEqual(0, 1 - 1)

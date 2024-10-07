@@ -1,5 +1,7 @@
+# ruff: noqa: INP001, T201
 import os
-from google.cloud.firestore import Client as FirestoreClient  # type: ignore
+
+from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 
 FIRESTORE_DB = os.getenv('FIRESTORE_DB') or '(default)'
 
@@ -12,7 +14,7 @@ for client in clients:
 
     for k, v in client.to_dict().items():
         print(f'    {k}: {v}')
-    print('')
+    print()
 
     print('    #### Employees ####')
     employees = db.collection('clients').document(client.id).collection('employees').stream()
@@ -21,5 +23,5 @@ for client in clients:
 
         for k, v in employee.to_dict().items():
             print(f'        {k}: {v}')
-        print('')
-    print('')
+        print()
+    print()

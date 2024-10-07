@@ -1,11 +1,13 @@
 import json
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+
 from flask import Blueprint, Response
 from flask.views import MethodView
 from marshmallow import ValidationError
 
 
-def class_route(blueprint: Blueprint, rule: str, **options: Any) -> Callable[[type[MethodView]], type[MethodView]]:
+def class_route(blueprint: Blueprint, rule: str, **options: Any) -> Callable[[type[MethodView]], type[MethodView]]:  # noqa: ANN401
     def decorator(cls: type[MethodView]) -> type[MethodView]:
         blueprint.add_url_rule(rule, view_func=cls.as_view(cls.__name__), **options)
         return cls
