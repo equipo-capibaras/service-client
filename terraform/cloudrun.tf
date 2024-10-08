@@ -46,8 +46,8 @@ resource "google_cloud_run_v2_service" "default" {
         name = "JWT_PRIVATE_KEY"
         value_source {
           secret_key_ref {
-            secret = google_secret_manager_secret.jwt_private_key.secret_id
-            version = google_secret_manager_secret_version.jwt_private_key.version
+            secret = data.google_secret_manager_secret.jwt_private_key.secret_id
+            version = data.google_secret_manager_secret_version.jwt_private_key.version
           }
         }
       }
