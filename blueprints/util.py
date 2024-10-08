@@ -28,4 +28,4 @@ def validation_error_response(err: ValidationError) -> Response:
         msg = ' '.join([f'Invalid value for {k}: {" ".join(v)}' for k, v in err.messages.items()])
         return error_response(msg, 400)
 
-    raise NotImplementedError('Validation error response for non-dict messages not implemented.')
+    raise NotImplementedError('Validation error response for non-dict messages not implemented.')  # pragma: no cover

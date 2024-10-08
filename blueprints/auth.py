@@ -54,7 +54,7 @@ class AuthEmployee(MethodView):
         except ValidationError as err:
             return validation_error_response(err)
 
-        employee = employee_repo.find_employee_by_email(data.username)
+        employee = employee_repo.find_by_email(data.username)
 
         if employee is None or not pbkdf2_sha256.verify(data.password, employee.password):
             return error_response('Invalid username or password.', 401)
@@ -66,7 +66,7 @@ class AuthEmployee(MethodView):
             'iss': jwt_issuer,
             'sub': employee.id,
             'cid': employee.client_id,
-            'aud': employee.role.lower(),
+            'aud': employee.role.value,
             'iat': int(time_issued.timestamp()),
             'exp': int(time_expiry.timestamp()),
         }

@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from .role import Role
+
 
 @dataclass
 class Employee:
@@ -8,4 +10,4 @@ class Employee:
     name: str
     email: str
     password: str
-    role: str
+    role: Role

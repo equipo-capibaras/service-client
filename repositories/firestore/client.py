@@ -1,34 +1,32 @@
 import logging
+from dataclasses import asdict
+from typing import TYPE_CHECKING, cast
 
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
+from google.cloud.firestore_v1 import DocumentReference
 
-import demo
-from repositories import EmployeeRepository
+from models import Client
+from repositories import ClientRepository
 
-from .util import delete_collection_recursive
+if TYPE_CHECKING:
+    from collections.abc import Generator  # pragma: no cover
+
+    from google.cloud.firestore_v1 import DocumentSnapshot  # pragma: no cover
 
 
-class FirestoreClientRepository(EmployeeRepository):
+class FirestoreClientRepository(ClientRepository):
     def __init__(self, database: str) -> None:
         self.db = FirestoreClient(database=database)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def reset(self, *, load_demo_data: bool = False) -> None:
-        delete_collection_recursive(self.db.collection('clients'))
+    def create(self, client: Client) -> None:
+        client_dict = asdict(client)
+        del client_dict['id']
 
-        self.logger.info('Database cleared.')
+        client_ref = self.db.collection('clients').document(client.id)
+        client_ref.create(client_dict)
 
-        if load_demo_data:
-            for c in demo.clients:
-                client = c.copy()
-                client_id = client.pop('id')
-                employees = client.pop('employees')
-                self.db.collection('clients').document(client_id).set(client)
-
-                for e in employees:
-                    employee = e.copy()
-                    employee_id = employee.pop('id')
-                    collection_employees = self.db.collection('clients').document(client_id).collection('employees')
-                    collection_employees.document(employee_id).set(employee)
-
-            self.logger.info('Demo data loaded.')
+    def delete_all(self) -> None:
+        stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').stream()
+        for client in stream:
+            cast(DocumentReference, client.reference).delete()
