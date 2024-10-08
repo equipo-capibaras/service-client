@@ -1,3 +1,3 @@
-from .data import clients
+from .data import clients, employees
 
-__all__ = ['clients']
+__all__ = ['clients', 'employees']

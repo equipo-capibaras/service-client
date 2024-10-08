@@ -89,11 +89,11 @@ class TestAuth(ParametrizedTestCase):
         }
 
         employee_repo_mock = Mock(EmployeeRepository)
-        cast(Mock, employee_repo_mock.find_employee_by_email).return_value = None
+        cast(Mock, employee_repo_mock.find_by_email).return_value = None
         with self.app.container.employee_repo.override(employee_repo_mock):
             resp = self.call_api(login_data)
 
-        cast(Mock, employee_repo_mock.find_employee_by_email).assert_called_once_with(login_data['username'])
+        cast(Mock, employee_repo_mock.find_by_email).assert_called_once_with(login_data['username'])
 
         self.assertEqual(resp.status_code, 401)
         resp_data = json.loads(resp.get_data())
@@ -120,11 +120,11 @@ class TestAuth(ParametrizedTestCase):
 
         employee_repo_mock = Mock(EmployeeRepository)
 
-        cast(Mock, employee_repo_mock.find_employee_by_email).return_value = employee
+        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
         with self.app.container.employee_repo.override(employee_repo_mock):
             resp = self.call_api(login_data)
 
-        cast(Mock, employee_repo_mock.find_employee_by_email).assert_called_once_with(login_data['username'])
+        cast(Mock, employee_repo_mock.find_by_email).assert_called_once_with(login_data['username'])
 
         self.assertEqual(resp.status_code, 200)
         resp_data = json.loads(resp.get_data())

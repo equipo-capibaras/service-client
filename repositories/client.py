@@ -1,3 +1,9 @@
+from models import Client
+
+
 class ClientRepository:
-    def reset(self, *, load_demo_data: bool = False) -> None:
+    def create(self, client: Client) -> None:
+        raise NotImplementedError  # pragma: no cover
+
+    def delete_all(self) -> None:
         raise NotImplementedError  # pragma: no cover
