@@ -1,10 +1,10 @@
-from models import Client, Employee
+from models import Client, Employee, Plan, Role
 
 # Universo Móvel
 client_universo = Client(
     id='acfa53b4-58f3-46e8-809b-19ef52b437ed',
     name='Universo Móvel',
-    plan='EMPRENDEDOR',
+    plan=Plan.EMPRENDEDOR,
     email_incidents='universo@capibaras.io',
 )
 
@@ -15,7 +15,7 @@ employees_universo = [
         name='Bernardo Lima Abreu',
         email='bernardo.abreu@universo.br',
         password='$pbkdf2-sha256$29000$qpWylrI2BqD03rtXam3tvQ$avheO0yxd1O56eB0KSx6ynDjkljJrc46tcHf24iWsoc',  # noqa: S106
-        role='ADMIN',
+        role=Role.ADMIN,
     ),
     Employee(
         id='906ee75c-2bfd-4478-8f8e-da8b7fede94d',
@@ -23,7 +23,7 @@ employees_universo = [
         name='Maria Silva Oliveira',
         email='maria.silva@universo.br',
         password='$pbkdf2-sha256$29000$9f6fU0rpPYcQopRybq1VSg$MPkE3PyeoRa.iDh5FPS/5DAqFUqpS/B8iWnjmnFOa6A',  # noqa: S106
-        role='ANALYST',
+        role=Role.ANALYST,
     ),
     Employee(
         id='7ecbab00-726e-4c21-b7ea-17fa2ace7b1d',
@@ -31,7 +31,7 @@ employees_universo = [
         name='João Pedro Santos',
         email='joao.santos@universo.br',
         password='$pbkdf2-sha256$29000$co6Rsrb2vncupfT.39v7/w$fnenIA46DpG7.BJ.CqmqQ7MB1try3Pu91b1dQrKZZlo',  # noqa: S106
-        role='AGENT',
+        role=Role.AGENT,
     ),
 ]
 
@@ -39,7 +39,7 @@ employees_universo = [
 client_globalcom = Client(
     id='22128c04-0c2c-4633-8317-0fffd552f7a6',
     name='GlobalCom',
-    plan='EMPRESARIO',
+    plan=Plan.EMPRESARIO,
     email_incidents='globalcom@capibaras.io',
 )
 
@@ -50,7 +50,7 @@ employees_globalcom = [
         name='Emiliano Giraldo Velasquez',
         email='emiliano@globalcom.ec',
         password='$pbkdf2-sha256$29000$k5JSyvn/nzPmPGfM2Tun1A$fnAMQpvDOQ8r6ZpQfh0IWd5Dz6eTj7NmgpDgeuJBxeM',  # noqa: S106
-        role='ADMIN',
+        role=Role.ADMIN,
     ),
     Employee(
         id='1dabcf78-e62a-41fd-b69c-fd7c775b04d4',
@@ -58,7 +58,7 @@ employees_globalcom = [
         name='Mariana Sanchez Torres',
         email='mariana@globalcom.ec',
         password='$pbkdf2-sha256$29000$I6S0dm4tRSjFuBdCqJXy3g$FRrF180nHvi3UV4HVvV48hzuSTdbLDjx/oTvqFZty.8',  # noqa: S106
-        role='ANALYST',
+        role=Role.ANALYST,
     ),
     Employee(
         id='b15960ec-e058-4ed7-8721-39925c810583',
@@ -66,7 +66,7 @@ employees_globalcom = [
         name='Luciana Vargas Arango',
         email='luciana@globalcom.ec',
         password='$pbkdf2-sha256$29000$O6fU.l8LgbDWGsN4T0kJwQ$rJh0O1YIK22vpo34fiSbJcSNIWOzhTWjzywEYpMgGAo',  # noqa: S106
-        role='AGENT',
+        role=Role.AGENT,
     ),
 ]
 
@@ -74,7 +74,7 @@ employees_globalcom = [
 client_gigatel = Client(
     id='9a652818-342e-4771-84cf-39c20a29264d',
     name='GigaTel',
-    plan='EMPRESARIO_PLUS',
+    plan=Plan.EMPRESARIO_PLUS,
     email_incidents='gigatel@capibaras.io',
 )
 
@@ -85,7 +85,7 @@ employees_gigatel = [
         name='Cielo Guerrero Rivera',
         email='cielo.guerrero.rivera@gigatel.co',
         password='$pbkdf2-sha256$29000$5vwfw9g7x1jrXQthLMUYww$nonWNNpQ.656o2KHv.zPZcl7ILX.gsKtGPLkazWj9u4',  # noqa: S106
-        role='ADMIN',
+        role=Role.ADMIN,
     ),
     Employee(
         id='e7ae844f-ae95-4d04-8d45-0a155ce58bcc',
@@ -93,7 +93,7 @@ employees_gigatel = [
         name='Miguel Diaz Flores',
         email='miguel.diaz.flores@gigatel.co',
         password='$pbkdf2-sha256$29000$a02J0boXYqyVsnaOcW6t1Q$fsd6x5xNR1vZHOKT1utssQ6RTmo0EPlm9OsEXC55mCo',  # noqa: S106
-        role='ANALYST',
+        role=Role.ANALYST,
     ),
     Employee(
         id='0abad006-921c-4e09-b2a6-10713b71571f',
@@ -101,7 +101,7 @@ employees_gigatel = [
         name='Julian Cordoba Rincón',
         email='julian.cordoba.rincon@gigatel.co',
         password='$pbkdf2-sha256$29000$/L93bo3R.h.DUOq917p3Dg$OJ6VIcC5j7s8ITKP6Kk4n2k2leXGU/5OA3gj6sX8y/Y',  # noqa: S106
-        role='AGENT',
+        role=Role.AGENT,
     ),
 ]
 

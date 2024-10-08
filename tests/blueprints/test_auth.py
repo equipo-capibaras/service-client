@@ -11,7 +11,7 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 from werkzeug.test import TestResponse
 
 from app import create_app
-from models import Employee
+from models import Employee, Role
 from repositories import EmployeeRepository
 
 
@@ -110,7 +110,7 @@ class TestAuth(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(password),
-            role=self.faker.random_element(['ADMIN', 'ANALYST', 'AGENT']),
+            role=self.faker.random_element(list(Role)),
         )
 
         login_data = {
@@ -130,4 +130,4 @@ class TestAuth(ParametrizedTestCase):
         resp_data = json.loads(resp.get_data())
 
         self.assertIn('token', resp_data)
-        jwt.decode(resp_data['token'], self.jwt_public_key, algorithms=['EdDSA'], audience=employee.role.lower())
+        jwt.decode(resp_data['token'], self.jwt_public_key, algorithms=['EdDSA'], audience=employee.role.value)

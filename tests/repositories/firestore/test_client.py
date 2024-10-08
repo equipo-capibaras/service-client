@@ -7,7 +7,7 @@ import requests
 from faker import Faker
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 
-from models import Client
+from models import Client, Plan
 from repositories.firestore import FirestoreClientRepository
 
 FIRESTORE_DATABASE = '(default)'
@@ -31,7 +31,7 @@ class TestClient(TestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(['EMPRENDEDOR', 'EMPRESARIO', 'EMPRESARIO_PLUS']),
+            plan=self.faker.random_element(list(Plan)),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -51,7 +51,7 @@ class TestClient(TestCase):
             client = Client(
                 id=cast(str, self.faker.uuid4()),
                 name=self.faker.company(),
-                plan=self.faker.random_element(['EMPRENDEDOR', 'EMPRESARIO', 'EMPRESARIO_PLUS']),
+                plan=self.faker.random_element(list(Plan)),
                 email_incidents=self.faker.unique.email(),
             )
 

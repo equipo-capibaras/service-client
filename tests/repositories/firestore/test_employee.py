@@ -9,7 +9,7 @@ from google.cloud.firestore import Client as FirestoreClient  # type: ignore[imp
 from google.cloud.firestore_v1 import DocumentReference
 from passlib.hash import pbkdf2_sha256
 
-from models import Client, Employee
+from models import Client, Employee, Plan, Role
 from repositories.firestore import FirestoreEmployeeRepository
 
 FIRESTORE_DATABASE = '(default)'
@@ -33,7 +33,7 @@ class TestEmployee(TestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(['EMPRENDEDOR', 'EMPRESARIO', 'EMPRESARIO_PLUS']),
+            plan=self.faker.random_element(list(Plan)),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -47,7 +47,7 @@ class TestEmployee(TestCase):
             name=self.faker.name(),
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(['ADMIN', 'ANALYST', 'AGENT']),
+            role=self.faker.random_element(list(Role)),
         )
         employee_dict = asdict(employee)
         del employee_dict['id']
@@ -62,7 +62,7 @@ class TestEmployee(TestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(['EMPRENDEDOR', 'EMPRESARIO', 'EMPRESARIO_PLUS']),
+            plan=self.faker.random_element(list(Plan)),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -76,7 +76,7 @@ class TestEmployee(TestCase):
             name=self.faker.name(),
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(['ADMIN', 'ANALYST', 'AGENT']),
+            role=self.faker.random_element(list(Role)),
         )
         employee_dict = asdict(employee)
         del employee_dict['id']
@@ -90,7 +90,7 @@ class TestEmployee(TestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(['EMPRENDEDOR', 'EMPRESARIO', 'EMPRESARIO_PLUS']),
+            plan=self.faker.random_element(list(Plan)),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -107,7 +107,7 @@ class TestEmployee(TestCase):
                 name=self.faker.name(),
                 email=email,
                 password=pbkdf2_sha256.hash(self.faker.password()),
-                role=self.faker.random_element(['ADMIN', 'ANALYST', 'AGENT']),
+                role=self.faker.random_element(list(Role)),
             )
             employee_dict = asdict(employee)
             del employee_dict['id']
@@ -126,7 +126,7 @@ class TestEmployee(TestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(['EMPRENDEDOR', 'EMPRESARIO', 'EMPRESARIO_PLUS']),
+            plan=self.faker.random_element(list(Plan)),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -140,7 +140,7 @@ class TestEmployee(TestCase):
             name=self.faker.name(),
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(['ADMIN', 'ANALYST', 'AGENT']),
+            role=self.faker.random_element(list(Role)),
         )
 
         self.repo.create(employee)
@@ -166,7 +166,7 @@ class TestEmployee(TestCase):
             client = Client(
                 id=cast(str, self.faker.uuid4()),
                 name=self.faker.company(),
-                plan=self.faker.random_element(['EMPRENDEDOR', 'EMPRESARIO', 'EMPRESARIO_PLUS']),
+                plan=self.faker.random_element(list(Plan)),
                 email_incidents=self.faker.unique.email(),
             )
 
@@ -181,7 +181,7 @@ class TestEmployee(TestCase):
                     name=self.faker.name(),
                     email=self.faker.unique.email(),
                     password=pbkdf2_sha256.hash(self.faker.password()),
-                    role=self.faker.random_element(['ADMIN', 'ANALYST', 'AGENT']),
+                    role=self.faker.random_element(list(Role)),
                 )
                 employees.append(employee)
                 employee_dict = asdict(employee)

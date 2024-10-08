@@ -66,7 +66,7 @@ class AuthEmployee(MethodView):
             'iss': jwt_issuer,
             'sub': employee.id,
             'cid': employee.client_id,
-            'aud': employee.role.lower(),
+            'aud': employee.role.value,
             'iat': int(time_issued.timestamp()),
             'exp': int(time_expiry.timestamp()),
         }

@@ -1,8 +1,9 @@
 import logging
 from dataclasses import asdict
+from enum import Enum
 from typing import TYPE_CHECKING, cast
 
-from dacite import from_dict
+import dacite
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 from google.cloud.firestore_v1 import CollectionReference, DocumentReference
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -32,13 +33,14 @@ class FirestoreEmployeeRepository(EmployeeRepository):
             return None
 
         doc = docs[0]
-        return from_dict(
+        return dacite.from_dict(
             data_class=Employee,
             data={
                 **doc.to_dict(),
                 'id': doc.id,
                 'client_id': doc.reference.parent.parent.id,
             },
+            config=dacite.Config(cast=[Enum]),
         )
 
     def create(self, employee: Employee) -> None:
