@@ -9,6 +9,8 @@ resource "google_project_service" "secretmanager" {
 # Creates a Secret Manager secret to store the JWT private key.
 data "google_secret_manager_secret" "jwt_private_key" {
   secret_id = "jwt-private-key"
+
+  depends_on = [ google_project_service.secretmanager ]
 }
 
 data "google_secret_manager_secret_version" "jwt_private_key" {
