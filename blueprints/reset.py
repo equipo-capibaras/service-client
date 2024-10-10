@@ -1,5 +1,3 @@
-import json
-
 from dependency_injector.wiring import Provide, inject
 from flask import Blueprint, Response, request
 from flask.views import MethodView
@@ -8,7 +6,7 @@ import demo
 from containers import Container
 from repositories import ClientRepository, EmployeeRepository
 
-from .util import class_route
+from .util import class_route, json_response
 
 blp = Blueprint('Reset database', __name__)
 
@@ -33,4 +31,4 @@ class ResetDB(MethodView):
             for employee in demo.employees:
                 employee_repo.create(employee)
 
-        return Response(json.dumps({'status': 'Ok'}), status=200, mimetype='application/json')
+        return json_response({'status': 'Ok'}, 200)

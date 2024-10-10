@@ -1,20 +1,20 @@
 import logging
+from collections.abc import Generator
 from dataclasses import asdict
 from enum import Enum
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import dacite
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
-from google.cloud.firestore_v1 import CollectionReference, DocumentReference
+from google.cloud.firestore_v1 import (
+    CollectionReference,
+    DocumentReference,
+    DocumentSnapshot,
+)
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
 from repositories import EmployeeRepository
-
-if TYPE_CHECKING:
-    from collections.abc import Generator  # pragma: no cover
-
-    from google.cloud.firestore_v1 import DocumentSnapshot  # pragma: no cover
 
 
 class FirestoreEmployeeRepository(EmployeeRepository):
@@ -38,7 +38,9 @@ class FirestoreEmployeeRepository(EmployeeRepository):
             data={
                 **doc.to_dict(),
                 'id': doc.id,
-                'client_id': doc.reference.parent.parent.id,
+                'client_id': cast(
+                    DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent
+                ).id,
             },
             config=dacite.Config(cast=[Enum]),
         )

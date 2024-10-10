@@ -130,4 +130,8 @@ class TestAuth(ParametrizedTestCase):
         resp_data = json.loads(resp.get_data())
 
         self.assertIn('token', resp_data)
-        jwt.decode(resp_data['token'], self.jwt_public_key, algorithms=['EdDSA'], audience=employee.role.value)
+        decoded_token = jwt.decode(resp_data['token'], self.jwt_public_key, algorithms=['EdDSA'], audience=employee.role.value)
+        self.assertEqual(decoded_token['iss'], self.jwt_issuer)
+        self.assertEqual(decoded_token['sub'], employee.id)
+        self.assertEqual(decoded_token['cid'], employee.client_id)
+        self.assertEqual(decoded_token['aud'], employee.role.value)
