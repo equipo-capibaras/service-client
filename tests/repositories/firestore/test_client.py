@@ -27,6 +27,25 @@ class TestClient(TestCase):
         self.repo = FirestoreClientRepository(FIRESTORE_DATABASE)
         self.client = FirestoreClient(database=FIRESTORE_DATABASE)
 
+    def add_random_clients(self, n: int) -> list[Client]:
+        clients: list[Client] = []
+
+        # Add 3 clients to Firestore
+        for _ in range(n):
+            client = Client(
+                id=cast(str, self.faker.uuid4()),
+                name=self.faker.company(),
+                plan=self.faker.random_element(list(Plan)),
+                email_incidents=self.faker.unique.email(),
+            )
+
+            clients.append(client)
+            client_dict = asdict(client)
+            del client_dict['id']
+            self.client.collection('clients').document(client.id).set(client_dict)
+
+        return clients
+
     def test_create(self) -> None:
         client = Client(
             id=cast(str, self.faker.uuid4()),
@@ -43,22 +62,17 @@ class TestClient(TestCase):
         del client_dict['id']
         self.assertEqual(doc.to_dict(), client_dict)
 
+    def test_get_all(self) -> None:
+        clients = self.add_random_clients(5)
+
+        retrieved_clients = list(self.repo.get_all())
+        sorted_clients = sorted(clients, key=lambda c: c.name)
+
+        for i, client in enumerate(sorted_clients):
+            self.assertEqual(retrieved_clients[i], client)
+
     def test_delete_all(self) -> None:
-        clients: list[Client] = []
-
-        # Add 3 clients to Firestore
-        for _ in range(3):
-            client = Client(
-                id=cast(str, self.faker.uuid4()),
-                name=self.faker.company(),
-                plan=self.faker.random_element(list(Plan)),
-                email_incidents=self.faker.unique.email(),
-            )
-
-            clients.append(client)
-            client_dict = asdict(client)
-            del client_dict['id']
-            self.client.collection('clients').document(client.id).set(client_dict)
+        clients = self.add_random_clients(5)
 
         self.repo.delete_all()
 
