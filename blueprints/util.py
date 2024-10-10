@@ -15,7 +15,7 @@ def class_route(blueprint: Blueprint, rule: str, **options: Any) -> Callable[[ty
     return decorator
 
 
-def json_response(data: dict[str, Any], status: int) -> Response:
+def json_response(data: dict[str, Any] | list[dict[str, Any]], status: int) -> Response:
     return Response(json.dumps(data), status=status, mimetype='application/json')
 
 

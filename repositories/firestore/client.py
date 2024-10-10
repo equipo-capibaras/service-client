@@ -1,17 +1,18 @@
 import logging
+from collections.abc import Generator  # pragma: no cover
 from dataclasses import asdict
-from typing import TYPE_CHECKING, cast
+from enum import Enum
+from typing import Any, cast
 
+import dacite
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
-from google.cloud.firestore_v1 import DocumentReference
+from google.cloud.firestore_v1 import (
+    DocumentReference,
+    DocumentSnapshot,
+)
 
 from models import Client
 from repositories import ClientRepository
-
-if TYPE_CHECKING:
-    from collections.abc import Generator  # pragma: no cover
-
-    from google.cloud.firestore_v1 import DocumentSnapshot  # pragma: no cover
 
 
 class FirestoreClientRepository(ClientRepository):
@@ -25,6 +26,19 @@ class FirestoreClientRepository(ClientRepository):
 
         client_ref = self.db.collection('clients').document(client.id)
         client_ref.create(client_dict)
+
+    def get_all(self) -> Generator[Client, None, None]:
+        stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').order_by('name').stream()
+        for doc in stream:
+            yield dacite.from_dict(
+                data_class=Client,
+                data={
+                    # Can never be None, as it's a Firestore DocumentSnapshot and therefore always exists
+                    **cast(dict[str, Any], doc.to_dict()),
+                    'id': doc.id,
+                },
+                config=dacite.Config(cast=[Enum]),
+            )
 
     def delete_all(self) -> None:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').stream()
