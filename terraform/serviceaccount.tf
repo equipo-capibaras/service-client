@@ -30,3 +30,12 @@ data "google_service_account" "circleci" {
 
   depends_on = [ google_project_service.iam ]
 }
+
+# Retrieves the service account of the user microservice.
+# This is defined as part of the user microservice
+# This service account is given permissions to access this microservice
+data "google_service_account" "user" {
+  account_id   = "user-svc"
+
+  depends_on = [ google_project_service.iam ]
+}
