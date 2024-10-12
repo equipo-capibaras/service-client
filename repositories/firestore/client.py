@@ -20,6 +20,17 @@ class FirestoreClientRepository(ClientRepository):
         self.db = FirestoreClient(database=database)
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    def doc_to_user(self, doc: DocumentSnapshot) -> Client:
+        return dacite.from_dict(
+            data_class=Client,
+            data={
+                # Can never be None, as it's a Firestore DocumentSnapshot and therefore always exists
+                **cast(dict[str, Any], doc.to_dict()),
+                'id': doc.id,
+            },
+            config=dacite.Config(cast=[Enum]),
+        )
+
     def create(self, client: Client) -> None:
         client_dict = asdict(client)
         del client_dict['id']
@@ -27,18 +38,18 @@ class FirestoreClientRepository(ClientRepository):
         client_ref = self.db.collection('clients').document(client.id)
         client_ref.create(client_dict)
 
+    def get(self, client_id: str) -> Client | None:
+        client_doc = self.db.collection('clients').document(client_id).get()
+
+        if not client_doc.exists:
+            return None
+
+        return self.doc_to_user(client_doc)
+
     def get_all(self) -> Generator[Client, None, None]:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').order_by('name').stream()
         for doc in stream:
-            yield dacite.from_dict(
-                data_class=Client,
-                data={
-                    # Can never be None, as it's a Firestore DocumentSnapshot and therefore always exists
-                    **cast(dict[str, Any], doc.to_dict()),
-                    'id': doc.id,
-                },
-                config=dacite.Config(cast=[Enum]),
-            )
+            yield self.doc_to_user(doc)
 
     def delete_all(self) -> None:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').stream()
