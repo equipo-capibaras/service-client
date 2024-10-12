@@ -1,32 +1,42 @@
 import os
+
 from flask import Flask
-from gcp_microservice_utils import setup_cloud_logging, setup_cloud_trace, setup_apigateway
+from gcp_microservice_utils import setup_apigateway, setup_cloud_logging, setup_cloud_trace
+
+from blueprints import BlueprintAuth, BlueprintClient, BlueprintHealth, BlueprintReset
 from containers import Container
-from blueprints import BlueprintHealth, BlueprintAuth, BlueprintReset
 
 
-def create_app() -> Flask:
+class FlaskMicroservice(Flask):
+    container: Container
+
+
+def create_app() -> FlaskMicroservice:
     if os.getenv('ENABLE_CLOUD_LOGGING') == '1':
-        setup_cloud_logging()
+        setup_cloud_logging()  # pragma: no cover
 
-    container = Container()
-    container.config.firestore.database.from_env("FIRESTORE_DATABASE", "(default)")
-    container.config.jwt.issuer.from_env("JWT_ISSUER", required=True)
-    container.config.jwt.private_key.from_env(
-        "JWT_PRIVATE_KEY",
-        required=True,
-        as_= lambda x: '-----BEGIN PRIVATE KEY-----\n' + x + '\n-----END PRIVATE KEY-----\n'
-    )
+    app = FlaskMicroservice(__name__)
+    app.container = Container()
 
-    app = Flask(__name__)
+    app.container.config.firestore.database.from_env('FIRESTORE_DATABASE', '(default)')
+
+    if 'JWT_ISSUER' in os.environ:
+        app.container.config.jwt.issuer.from_env('JWT_ISSUER')  # pragma: no cover
+
+    if 'JWT_PRIVATE_KEY' in os.environ:
+        app.container.config.jwt.private_key.from_env(
+            'JWT_PRIVATE_KEY',
+            as_=lambda x: None if x is None else '-----BEGIN PRIVATE KEY-----\n' + x + '\n-----END PRIVATE KEY-----\n',
+        )  # pragma: no cover
 
     if os.getenv('ENABLE_CLOUD_TRACE') == '1':
-        setup_cloud_trace(app)
+        setup_cloud_trace(app)  # pragma: no cover
 
     setup_apigateway(app)
 
-    app.register_blueprint(BlueprintHealth)
     app.register_blueprint(BlueprintAuth)
+    app.register_blueprint(BlueprintClient)
+    app.register_blueprint(BlueprintHealth)
     app.register_blueprint(BlueprintReset)
 
     return app

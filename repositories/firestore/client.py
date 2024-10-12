@@ -1,31 +1,57 @@
 import logging
-from google.cloud.firestore import Client as FirestoreClient  # type: ignore
-from repositories import EmployeeRepository
-from .util import delete_collection_recursive
-import demo
+from collections.abc import Generator  # pragma: no cover
+from dataclasses import asdict
+from enum import Enum
+from typing import Any, cast
+
+import dacite
+from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
+from google.cloud.firestore_v1 import (
+    DocumentReference,
+    DocumentSnapshot,
+)
+
+from models import Client
+from repositories import ClientRepository
 
 
-class FirestoreClientRepository(EmployeeRepository):
-    def __init__(self, database: str):
+class FirestoreClientRepository(ClientRepository):
+    def __init__(self, database: str) -> None:
         self.db = FirestoreClient(database=database)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def reset(self, load_demo_data: bool = False) -> None:
-        delete_collection_recursive(self.db.collection('clients'))
+    def doc_to_user(self, doc: DocumentSnapshot) -> Client:
+        return dacite.from_dict(
+            data_class=Client,
+            data={
+                # Can never be None, as it's a Firestore DocumentSnapshot and therefore always exists
+                **cast(dict[str, Any], doc.to_dict()),
+                'id': doc.id,
+            },
+            config=dacite.Config(cast=[Enum]),
+        )
 
-        self.logger.info('Database cleared.')
+    def create(self, client: Client) -> None:
+        client_dict = asdict(client)
+        del client_dict['id']
 
-        if load_demo_data:
-            for c in demo.clients:
-                client = c.copy()
-                client_id = client.pop('id')
-                employees = client.pop('employees')
-                self.db.collection('clients').document(client_id).set(client)
+        client_ref = self.db.collection('clients').document(client.id)
+        client_ref.create(client_dict)
 
-                for e in employees:
-                    employee = e.copy()
-                    employee_id = employee.pop('id')
-                    collection_employees = self.db.collection('clients').document(client_id).collection('employees')
-                    collection_employees.document(employee_id).set(employee)
+    def get(self, client_id: str) -> Client | None:
+        client_doc = self.db.collection('clients').document(client_id).get()
 
-            self.logger.info('Demo data loaded.')
+        if not client_doc.exists:
+            return None
+
+        return self.doc_to_user(client_doc)
+
+    def get_all(self) -> Generator[Client, None, None]:
+        stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').order_by('name').stream()
+        for doc in stream:
+            yield self.doc_to_user(doc)
+
+    def delete_all(self) -> None:
+        stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').stream()
+        for client in stream:
+            cast(DocumentReference, client.reference).delete()

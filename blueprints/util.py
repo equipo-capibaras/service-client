@@ -1,11 +1,14 @@
 import json
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+from uuid import UUID
+
 from flask import Blueprint, Response
 from flask.views import MethodView
 from marshmallow import ValidationError
 
 
-def class_route(blueprint: Blueprint, rule: str, **options: Any) -> Callable[[type[MethodView]], type[MethodView]]:
+def class_route(blueprint: Blueprint, rule: str, **options: Any) -> Callable[[type[MethodView]], type[MethodView]]:  # noqa: ANN401
     def decorator(cls: type[MethodView]) -> type[MethodView]:
         blueprint.add_url_rule(rule, view_func=cls.as_view(cls.__name__), **options)
         return cls
@@ -13,7 +16,16 @@ def class_route(blueprint: Blueprint, rule: str, **options: Any) -> Callable[[ty
     return decorator
 
 
-def json_response(data: dict[str, Any], status: int) -> Response:
+def is_valid_uuid4(uuid: str) -> bool:
+    try:
+        UUID(uuid, version=4)
+    except ValueError:
+        return False
+
+    return True
+
+
+def json_response(data: dict[str, Any] | list[dict[str, Any]], status: int) -> Response:
     return Response(json.dumps(data), status=status, mimetype='application/json')
 
 
@@ -26,4 +38,4 @@ def validation_error_response(err: ValidationError) -> Response:
         msg = ' '.join([f'Invalid value for {k}: {" ".join(v)}' for k, v in err.messages.items()])
         return error_response(msg, 400)
 
-    raise NotImplementedError('Validation error response for non-dict messages not implemented.')
+    raise NotImplementedError('Validation error response for non-dict messages not implemented.')  # pragma: no cover
