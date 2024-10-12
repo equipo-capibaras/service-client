@@ -7,6 +7,9 @@ class ClientRepository:
     def create(self, client: Client) -> None:
         raise NotImplementedError  # pragma: no cover
 
+    def get(self, client_id: str) -> Client | None:
+        raise NotImplementedError  # pragma: no cover
+
     def get_all(self) -> Generator[Client, None, None]:
         raise NotImplementedError  # pragma: no cover
 

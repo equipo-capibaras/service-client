@@ -62,6 +62,18 @@ class TestClient(TestCase):
         del client_dict['id']
         self.assertEqual(doc.to_dict(), client_dict)
 
+    def test_get_existing(self) -> None:
+        client = self.add_random_clients(1)[0]
+
+        client_repo = self.repo.get(client.id)
+
+        self.assertEqual(client_repo, client)
+
+    def test_get_missing(self) -> None:
+        client_repo = self.repo.get(cast(str, self.faker.uuid4()))
+
+        self.assertIsNone(client_repo)
+
     def test_get_all(self) -> None:
         clients = self.add_random_clients(5)
 
