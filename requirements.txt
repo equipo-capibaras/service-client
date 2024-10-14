@@ -3,7 +3,7 @@ dacite==1.8.1
 dependency-injector==4.42.0
 Faker==30.3.0
 Flask==3.0.3
-gcp-microservice-utils==0.2.3
+gcp-microservice-utils==0.3.1
 google-cloud-firestore==2.19.0
 gunicorn==23.0.0
 marshmallow==3.22.0
