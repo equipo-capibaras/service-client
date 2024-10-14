@@ -11,7 +11,7 @@ from passlib.hash import pbkdf2_sha256
 from unittest_parametrize import ParametrizedTestCase, parametrize
 
 from models import Client, Employee, Plan, Role
-from repositories.firestore import FirestoreEmployeeRepository
+from repositories.firestore import UUID_UNASSIGNED, FirestoreEmployeeRepository
 
 FIRESTORE_DATABASE = '(default)'
 
@@ -33,14 +33,17 @@ class TestEmployee(ParametrizedTestCase):
         self.emails = [self.faker.unique.email() for _ in range(4)]
 
     @parametrize(
-        ('email_idx_map', 'find_idx', 'expected'),
+        ('email_idx_map', 'find_idx', 'assigned', 'expected'),
         [
-            ({0: 0, 1: 1, 2: 2}, 0, 0),  # Employee found
-            ({0: 0, 1: 1, 2: 2}, 3, None),  # Employee not found
-            ({0: 0, 1: 0, 2: 2}, 0, None),  # Multiple employees found
+            ({0: 0, 1: 1, 2: 2}, 0, True, 0),  # Employee found
+            ({0: 0, 1: 1, 2: 2}, 3, True, None),  # Employee not found
+            ({0: 0, 1: 0, 2: 2}, 0, True, None),  # Multiple employees found
+            ({0: 0, 1: 1, 2: 2}, 0, False, 0),  # Unassigned employee found
         ],
     )
-    def test_find_by_email(self, email_idx_map: dict[int, int], find_idx: int, expected: int | None) -> None:
+    def test_find_by_email(
+        self, *, email_idx_map: dict[int, int], find_idx: int, assigned: bool, expected: int | None
+    ) -> None:
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
@@ -56,7 +59,7 @@ class TestEmployee(ParametrizedTestCase):
         for idx, _ in enumerate(range(3)):
             employee = Employee(
                 id=cast(str, self.faker.uuid4()),
-                client_id=client.id,
+                client_id=client.id if assigned else None,
                 name=self.faker.name(),
                 email=self.emails[email_idx_map[idx]],
                 password=pbkdf2_sha256.hash(self.faker.password()),
@@ -66,7 +69,8 @@ class TestEmployee(ParametrizedTestCase):
             employee_dict = asdict(employee)
             del employee_dict['id']
             del employee_dict['client_id']
-            self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
+            client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
+            self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(
                 employee_dict
             )
 
@@ -89,7 +93,14 @@ class TestEmployee(ParametrizedTestCase):
                 self.assertEqual(cm.records[0].message, f'Multiple employees found with email {self.emails[find_idx]}')
                 self.assertEqual(cm.records[0].levelname, 'ERROR')
 
-    def test_create(self) -> None:
+    @parametrize(
+        ('assigned',),
+        [
+            (True,),  # Assigned employee
+            (False,),  # Unassigned employee
+        ],
+    )
+    def test_create(self, *, assigned: bool) -> None:
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
@@ -103,7 +114,7 @@ class TestEmployee(ParametrizedTestCase):
 
         employee = Employee(
             id=cast(str, self.faker.uuid4()),
-            client_id=client.id,
+            client_id=client.id if assigned else None,
             name=self.faker.name(),
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
@@ -112,9 +123,10 @@ class TestEmployee(ParametrizedTestCase):
 
         self.repo.create(employee)
 
+        client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
         employee_ref = cast(
             DocumentReference,
-            self.client.collection('clients').document(client.id).collection('employees').document(employee.id),
+            self.client.collection('clients').document(client_id).collection('employees').document(employee.id),
         )
         doc = employee_ref.get()
 

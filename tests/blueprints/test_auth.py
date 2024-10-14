@@ -101,12 +101,19 @@ class TestAuth(ParametrizedTestCase):
         self.assertEqual(resp_data['code'], 401)
         self.assertEqual(resp_data['message'], 'Invalid username or password.')
 
-    def test_login_valid_credentials(self) -> None:
+    @parametrize(
+        'assigned',
+        [
+            (True,),
+            (False,),
+        ],
+    )
+    def test_login_valid_credentials(self, *, assigned: bool) -> None:
         password = self.faker.password()
 
         employee = Employee(
             id=cast(str, self.faker.uuid4()),
-            client_id=cast(str, self.faker.uuid4()),
+            client_id=cast(str, self.faker.uuid4()) if assigned else None,
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(password),
@@ -130,8 +137,11 @@ class TestAuth(ParametrizedTestCase):
         resp_data = json.loads(resp.get_data())
 
         self.assertIn('token', resp_data)
-        decoded_token = jwt.decode(resp_data['token'], self.jwt_public_key, algorithms=['EdDSA'], audience=employee.role.value)
+
+        audience = ('unassigned_' if employee.client_id is None else '') + employee.role.value
+        decoded_token = jwt.decode(resp_data['token'], self.jwt_public_key, algorithms=['EdDSA'], audience=audience)
         self.assertEqual(decoded_token['iss'], self.jwt_issuer)
         self.assertEqual(decoded_token['sub'], employee.id)
         self.assertEqual(decoded_token['cid'], employee.client_id)
-        self.assertEqual(decoded_token['aud'], employee.role.value)
+        self.assertEqual(decoded_token['role'], employee.role.value)
+        self.assertEqual(decoded_token['aud'], audience)

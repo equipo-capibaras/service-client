@@ -21,7 +21,8 @@ blp = Blueprint('Authentication', __name__)
 class JWTPayload(typing.TypedDict):
     iss: str
     sub: str
-    cid: str
+    cid: str | None
+    role: str
     aud: str
     iat: int
     exp: int
@@ -66,7 +67,8 @@ class AuthEmployee(MethodView):
             'iss': jwt_issuer,
             'sub': employee.id,
             'cid': employee.client_id,
-            'aud': employee.role.value,
+            'role': employee.role.value,
+            'aud': ('unassigned_' if employee.client_id is None else '') + employee.role.value,
             'iat': int(time_issued.timestamp()),
             'exp': int(time_expiry.timestamp()),
         }

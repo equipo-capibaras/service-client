@@ -105,5 +105,25 @@ employees_gigatel = [
     ),
 ]
 
+# Unassigned
+employees_unassigned = [
+    Employee(
+        id='e7ae844f-ae95-4d04-8d45-0a155ce58bcc',
+        client_id=None,
+        name='Sofia Martinez Lopez',
+        email='sofia@gigatel.co',
+        password='$pbkdf2-sha256$29000$LQWA0FqLsTbm3JtTas1Zyw$aakebPeV.Ex.El4ZTaAMeopJ8ArQPZgB1uKb8hunVig',  # noqa: S106
+        role=Role.ANALYST,
+    ),
+    Employee(
+        id='0abad006-921c-4e09-b2a6-10713b71571f',
+        client_id=None,
+        name='Lucia Gonzalez Fernandez',
+        email='lucia@globalcom.ec',
+        password='$pbkdf2-sha256$29000$U.q917r3ntNaK2VMibE2Bg$gZOEg.vzYmKUf0n3hNxUSUBCdpUwxv6OHGqnTuzWyHw',  # noqa: S106
+        role=Role.AGENT,
+    ),
+]
+
 clients = [client_universo, client_globalcom, client_gigatel]
-employees = employees_universo + employees_globalcom + employees_gigatel
+employees = employees_universo + employees_globalcom + employees_gigatel + employees_unassigned
