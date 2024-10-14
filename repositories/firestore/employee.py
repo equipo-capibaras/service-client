@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from collections.abc import Generator
 from dataclasses import asdict
@@ -5,6 +6,7 @@ from enum import Enum
 from typing import cast
 
 import dacite
+from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 from google.cloud.firestore_v1 import (
     CollectionReference,
@@ -15,6 +17,8 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
 from repositories import EmployeeRepository
+
+from .constants import UUID_UNASSIGNED
 
 
 class FirestoreEmployeeRepository(EmployeeRepository):
@@ -33,14 +37,16 @@ class FirestoreEmployeeRepository(EmployeeRepository):
             return None
 
         doc = docs[0]
+        client_id = cast(DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
+        if client_id == UUID_UNASSIGNED:
+            client_id = None
+
         return dacite.from_dict(
             data_class=Employee,
             data={
                 **doc.to_dict(),
                 'id': doc.id,
-                'client_id': cast(
-                    DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent
-                ).id,
+                'client_id': client_id,
             },
             config=dacite.Config(cast=[Enum]),
         )
@@ -50,7 +56,13 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         del employee_dict['id']
         del employee_dict['client_id']
 
-        client_ref = self.db.collection('clients').document(employee.client_id)
+        client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
+
+        client_ref = self.db.collection('clients').document(UUID_UNASSIGNED)
+        with contextlib.suppress(AlreadyExists):
+            client_ref.create({})
+
+        client_ref = self.db.collection('clients').document(client_id)
         employee_ref = cast(CollectionReference, client_ref.collection('employees')).document(employee.id)
         employee_ref.create(employee_dict)
 

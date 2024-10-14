@@ -14,6 +14,8 @@ from google.cloud.firestore_v1 import (
 from models import Client
 from repositories import ClientRepository
 
+from .constants import UUID_UNASSIGNED
+
 
 class FirestoreClientRepository(ClientRepository):
     def __init__(self, database: str) -> None:
@@ -39,6 +41,9 @@ class FirestoreClientRepository(ClientRepository):
         client_ref.create(client_dict)
 
     def get(self, client_id: str) -> Client | None:
+        if client_id == UUID_UNASSIGNED:
+            return None
+
         client_doc = self.db.collection('clients').document(client_id).get()
 
         if not client_doc.exists:

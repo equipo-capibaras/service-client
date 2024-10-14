@@ -1,3 +1,4 @@
+import contextlib
 import os
 from dataclasses import asdict
 from typing import cast
@@ -5,10 +6,11 @@ from unittest import TestCase, skipUnless
 
 import requests
 from faker import Faker
+from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 
 from models import Client, Plan
-from repositories.firestore import FirestoreClientRepository
+from repositories.firestore import UUID_UNASSIGNED, FirestoreClientRepository
 
 FIRESTORE_DATABASE = '(default)'
 
@@ -30,7 +32,7 @@ class TestClient(TestCase):
     def add_random_clients(self, n: int) -> list[Client]:
         clients: list[Client] = []
 
-        # Add 3 clients to Firestore
+        # Add n clients to Firestore
         for _ in range(n):
             client = Client(
                 id=cast(str, self.faker.uuid4()),
@@ -43,6 +45,10 @@ class TestClient(TestCase):
             client_dict = asdict(client)
             del client_dict['id']
             self.client.collection('clients').document(client.id).set(client_dict)
+
+        client_ref = self.client.collection('clients').document(UUID_UNASSIGNED)
+        with contextlib.suppress(AlreadyExists):
+            client_ref.create({})
 
         return clients
 
@@ -68,6 +74,12 @@ class TestClient(TestCase):
         client_repo = self.repo.get(client.id)
 
         self.assertEqual(client_repo, client)
+
+    def test_get_unassigned(self) -> None:
+        self.add_random_clients(1)
+        client_repo = self.repo.get(UUID_UNASSIGNED)
+
+        self.assertIsNone(client_repo)
 
     def test_get_missing(self) -> None:
         client_repo = self.repo.get(cast(str, self.faker.uuid4()))
