@@ -22,7 +22,7 @@ class FirestoreClientRepository(ClientRepository):
         self.db = FirestoreClient(database=database)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def doc_to_user(self, doc: DocumentSnapshot) -> Client:
+    def doc_to_client(self, doc: DocumentSnapshot) -> Client:
         return dacite.from_dict(
             data_class=Client,
             data={
@@ -49,12 +49,12 @@ class FirestoreClientRepository(ClientRepository):
         if not client_doc.exists:
             return None
 
-        return self.doc_to_user(client_doc)
+        return self.doc_to_client(client_doc)
 
     def get_all(self) -> Generator[Client, None, None]:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').order_by('name').stream()
         for doc in stream:
-            yield self.doc_to_user(doc)
+            yield self.doc_to_client(doc)
 
     def delete_all(self) -> None:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').stream()

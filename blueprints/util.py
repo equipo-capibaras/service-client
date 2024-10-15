@@ -53,7 +53,7 @@ def requires_token(f: Callable[..., Response]) -> Callable[..., Response]:
             req = cast(APIGatewayRequest, request)
             token: dict[str, Any] = req.user_token
 
-            required_fields = ['sub', 'cid', 'aud']
+            required_fields = ['sub', 'cid', 'role', 'aud']
             for field in required_fields:
                 if field not in token:
                     return error_response(f'{field} is missing in token', 401)
