@@ -1,11 +1,16 @@
 import json
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
-from flask import Blueprint, Response
+from flask import Blueprint, Request, Response, request
 from flask.views import MethodView
 from marshmallow import ValidationError
+from tightwrap import wraps
+
+
+class APIGatewayRequest(Request):
+    user_token: dict[str, Any]
 
 
 def class_route(blueprint: Blueprint, rule: str, **options: Any) -> Callable[[type[MethodView]], type[MethodView]]:  # noqa: ANN401
@@ -39,3 +44,22 @@ def validation_error_response(err: ValidationError) -> Response:
         return error_response(msg, 400)
 
     raise NotImplementedError('Validation error response for non-dict messages not implemented.')  # pragma: no cover
+
+
+def requires_token(f: Callable[..., Response]) -> Callable[..., Response]:
+    @wraps(f)
+    def decorated_function(*args, **kwargs) -> Response:  # type: ignore[no-untyped-def] # noqa: ANN002, ANN003
+        if hasattr(request, 'user_token') and cast(APIGatewayRequest, request).user_token is not None:
+            req = cast(APIGatewayRequest, request)
+            token: dict[str, Any] = req.user_token
+
+            required_fields = ['sub', 'cid', 'aud']
+            for field in required_fields:
+                if field not in token:
+                    return error_response(f'{field} is missing in token', 401)
+
+            return f(*args, token=token, **kwargs)
+
+        return error_response('Token is missing', 401)
+
+    return decorated_function
