@@ -37,7 +37,7 @@ class ListClients(MethodView):
 
 
 @class_route(blp, '/api/v1/clients/me')
-class UserInfo(MethodView):
+class ClientInfo(MethodView):
     init_every_request = False
 
     @requires_token

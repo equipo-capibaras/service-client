@@ -100,6 +100,42 @@ class TestEmployee(ParametrizedTestCase):
             (False,),  # Unassigned employee
         ],
     )
+    def test_get_found(self, *, assigned: bool) -> None:
+        client_id = cast(str, self.faker.uuid4()) if assigned else None
+        self.client.collection('clients').document(client_id).set({})
+
+        employee = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=client_id,
+            name=self.faker.name(),
+            email=self.faker.unique.email(),
+            password=pbkdf2_sha256.hash(self.faker.password()),
+            role=self.faker.random_element(list(Role)),
+        )
+        employee_dict = asdict(employee)
+        del employee_dict['id']
+        del employee_dict['client_id']
+        client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
+        self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(employee_dict)
+
+        employee_db = self.repo.get(employee.id, employee.client_id)
+
+        self.assertEqual(employee_db, employee)
+
+    def test_get_not_found(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        employee_id = cast(str, self.faker.uuid4())
+        employee = self.repo.get(employee_id, client_id)
+
+        self.assertIsNone(employee)
+
+    @parametrize(
+        ('assigned',),
+        [
+            (True,),  # Assigned employee
+            (False,),  # Unassigned employee
+        ],
+    )
     def test_create(self, *, assigned: bool) -> None:
         client = Client(
             id=cast(str, self.faker.uuid4()),

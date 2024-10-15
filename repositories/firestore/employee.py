@@ -3,7 +3,7 @@ import logging
 from collections.abc import Generator
 from dataclasses import asdict
 from enum import Enum
-from typing import cast
+from typing import Any, cast
 
 import dacite
 from google.api_core.exceptions import AlreadyExists
@@ -26,6 +26,34 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         self.db = FirestoreClient(database=database)
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    def doc_to_employee(self, doc: DocumentSnapshot) -> Employee:
+        client_id = cast(DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
+        if client_id == UUID_UNASSIGNED:
+            client_id = None
+
+        return dacite.from_dict(
+            data_class=Employee,
+            data={
+                **cast(dict[str, Any], doc.to_dict()),
+                'id': doc.id,
+                'client_id': client_id,
+            },
+            config=dacite.Config(cast=[Enum]),
+        )
+
+    def get(self, employee_id: str, client_id: str | None) -> Employee | None:
+        if client_id is None:
+            client_id = UUID_UNASSIGNED
+
+        client_ref = self.db.collection('clients').document(client_id)
+        employee_ref = cast(CollectionReference, client_ref.collection('employees')).document(employee_id)
+        doc = employee_ref.get()
+
+        if not doc.exists:
+            return None
+
+        return self.doc_to_employee(doc)
+
     def find_by_email(self, email: str) -> Employee | None:
         docs = self.db.collection_group('employees').where(filter=FieldFilter('email', '==', email)).get()  # type: ignore[no-untyped-call]
 
@@ -36,20 +64,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
             self.logger.error('Multiple employees found with email %s', email)
             return None
 
-        doc = docs[0]
-        client_id = cast(DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
-        if client_id == UUID_UNASSIGNED:
-            client_id = None
-
-        return dacite.from_dict(
-            data_class=Employee,
-            data={
-                **doc.to_dict(),
-                'id': doc.id,
-                'client_id': client_id,
-            },
-            config=dacite.Config(cast=[Enum]),
-        )
+        return self.doc_to_employee(docs[0])
 
     def create(self, employee: Employee) -> None:
         employee_dict = asdict(employee)
