@@ -2,6 +2,9 @@ from models import Employee
 
 
 class EmployeeRepository:
+    def get(self, employee_id: str, client_id: str) -> Employee | None:
+        raise NotImplementedError  # pragma: no cover
+
     def find_by_email(self, email: str) -> Employee | None:
         raise NotImplementedError  # pragma: no cover
 

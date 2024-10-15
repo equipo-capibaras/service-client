@@ -48,6 +48,7 @@ class TestClient(ParametrizedTestCase):
         [
             ('sub',),
             ('cid',),
+            ('role',),
             ('aud',),
         ],
     )
@@ -147,9 +148,7 @@ class TestClient(ParametrizedTestCase):
             if api_method == 'get':
                 resp = self.client.get(f'/api/v1/clients/{client_id}')
             else:
-                token = self.gen_token(
-                    client_id=client_id, role=self.faker.random_element([Role.ADMIN, Role.AGENT, Role.ANALYST])
-                )
+                token = self.gen_token(client_id=client_id, role=self.faker.random_element(list(Role)))
                 resp = self.call_info_api(token)
 
         cast(Mock, client_repo_mock.get).assert_called_once_with(client_id)
