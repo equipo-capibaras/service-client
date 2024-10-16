@@ -23,8 +23,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def doc_to_employee(self, doc: DocumentSnapshot) -> Employee:
-        client_id = cast(DocumentReference,
-                         cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
+        client_id = cast(DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
         if client_id == UUID_UNASSIGNED:
             client_id = None
 
@@ -52,8 +51,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         return self.doc_to_employee(doc)
 
     def find_by_email(self, email: str) -> Employee | None:
-        docs = self.db.collection_group('employees').where(
-            filter=FieldFilter('email', '==', email)).get()  # type: ignore[no-untyped-call]
+        docs = self.db.collection_group('employees').where(filter=FieldFilter('email', '==', email)).get()  # type: ignore[no-untyped-call]
 
         if len(docs) == 0:
             return None

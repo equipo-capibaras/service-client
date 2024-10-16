@@ -42,7 +42,7 @@ class TestEmployee(ParametrizedTestCase):
         ],
     )
     def test_find_by_email(
-            self, *, email_idx_map: dict[int, int], find_idx: int, assigned: bool, expected: int | None
+        self, *, email_idx_map: dict[int, int], find_idx: int, assigned: bool, expected: int | None
     ) -> None:
         client = Client(
             id=cast(str, self.faker.uuid4()),
