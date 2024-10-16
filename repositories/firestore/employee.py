@@ -8,15 +8,11 @@ from typing import Any, cast
 import dacite
 from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
-from google.cloud.firestore_v1 import (
-    CollectionReference,
-    DocumentReference,
-    DocumentSnapshot,
-)
+from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
-from repositories import EmployeeRepository, DuplicateEmailError
+from repositories import EmployeeRepository
 
 from .constants import UUID_UNASSIGNED
 

@@ -12,7 +12,8 @@ from passlib.handlers.pbkdf2 import pbkdf2_sha256
 
 from containers import Container
 from models import Employee, Role
-from repositories import DuplicateEmailError, EmployeeRepository
+from repositories import EmployeeRepository
+from repositories.errors import UnexpectedError
 
 from .util import class_route, error_response, json_response, requires_token, validation_error_response
 
@@ -95,5 +96,5 @@ class EmployeeRegister(MethodView):
             # Return response
             return json_response(employee_to_dict(employee), 201)
 
-        except Exception as e:
-            return error_response(f'An error occurred: {str(e)}', 500)
+        except UnexpectedError as e:
+            return error_response(f'An error occurred: {e!s}', 500)
