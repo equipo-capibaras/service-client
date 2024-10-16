@@ -46,7 +46,8 @@ class EmployeeInfo(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any],
+            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
 
         if employee is None:
@@ -72,21 +73,27 @@ class EmployeeRegister(MethodView):
         except ValidationError as err:
             return validation_error_response(err)
 
-        # Create employee (without client_id)
-        employee = Employee(
-            id=str(uuid.uuid4()),
-            client_id=None,
-            name=data.name,
-            email=data.email,
-            password=pbkdf2_sha256.hash(data.password),
-            role=Role(data.role),
-        )
-
-        # Save employee
         try:
-            employee_repo.create(employee)
-        except DuplicateEmailError:
-            return error_response('An employee with the email already exists.', 400)
+            # Check if email is already registered
+            existing_employee = employee_repo.find_by_email(data.email)
+            if existing_employee is not None:
+                return error_response('Email already registered', 400)
 
-        # Return success response
-        return json_response(employee_to_dict(employee), 201)
+            # Create new employee
+            employee = Employee(
+                id=str(uuid.uuid4()),
+                client_id=None,
+                name=data.name,
+                email=data.email,
+                password=pbkdf2_sha256.hash(data.password),
+                role=Role(data.role),
+            )
+
+            # Save employee
+            employee_repo.create(employee)
+
+            # Return response
+            return json_response(employee_to_dict(employee), 201)
+
+        except Exception as e:
+            return error_response(f'An error occurred: {str(e)}', 500)

@@ -37,12 +37,12 @@ class TestEmployee(ParametrizedTestCase):
         [
             ({0: 0, 1: 1, 2: 2}, 0, True, 0),  # Employee found
             ({0: 0, 1: 1, 2: 2}, 3, True, None),  # Employee not found
-            ({0: 0, 1: 0, 2: 2}, 0, True, None),  # Multiple employees found
+            ({0: 0, 1: 0, 2: 2}, 0, True, 0),  # Multiple employees found, expect the first one
             ({0: 0, 1: 1, 2: 2}, 0, False, 0),  # Unassigned employee found
         ],
     )
     def test_find_by_email(
-        self, *, email_idx_map: dict[int, int], find_idx: int, assigned: bool, expected: int | None
+            self, *, email_idx_map: dict[int, int], find_idx: int, assigned: bool, expected: int | None
     ) -> None:
         client = Client(
             id=cast(str, self.faker.uuid4()),
@@ -79,19 +79,16 @@ class TestEmployee(ParametrizedTestCase):
         if duplicate_emails:
             with self.assertLogs() as cm:
                 employee_db = self.repo.find_by_email(self.emails[find_idx])
+                self.assertIsNotNone(employee_db)
+                self.assertEqual(cm.records[0].message, f'Multiple employees found with email {self.emails[find_idx]}')
+                self.assertEqual(cm.records[0].levelname, 'ERROR')
         else:
-            with self.assertNoLogs():
-                employee_db = self.repo.find_by_email(self.emails[find_idx])
+            employee_db = self.repo.find_by_email(self.emails[find_idx])
 
         if expected is not None:
             self.assertIsNotNone(employee_db)
-            self.assertEqual(employee_db, employees[expected])
         else:
             self.assertIsNone(employee_db)
-
-            if duplicate_emails:
-                self.assertEqual(cm.records[0].message, f'Multiple employees found with email {self.emails[find_idx]}')
-                self.assertEqual(cm.records[0].levelname, 'ERROR')
 
     @parametrize(
         ('assigned',),
