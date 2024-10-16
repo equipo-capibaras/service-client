@@ -94,5 +94,5 @@ class EmployeeRegister(MethodView):
             # Return response
             return json_response(employee_to_dict(employee), 201)
 
-        except UnexpectedError as e:
-            return error_response(f'An error occurred: {e!s}', 500)
+        except UnexpectedError:
+            return error_response('An unexpected error occurred.', 500)
