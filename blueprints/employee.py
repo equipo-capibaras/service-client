@@ -14,7 +14,7 @@ from containers import Container
 from models import Employee, Role
 from repositories import DuplicateEmailError, EmployeeRepository
 
-from .util import class_route, error_response, json_response, requires_token
+from .util import class_route, error_response, json_response, requires_token, validation_error_response
 
 blp = Blueprint('Employees', __name__)
 
@@ -33,11 +33,11 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
 @dataclass
 class RegisterEmployeeBody:
     name: str = field(metadata={'validate': marshmallow.validate.Length(min=1, max=60)})
-    email: str = field(
-        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
     password: str = field(metadata={'validate': marshmallow.validate.Length(min=8)})
     role: str = field(
-        metadata={'validate': marshmallow.validate.OneOf([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value])})
+        metadata={'validate': marshmallow.validate.OneOf([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value])}
+    )
 
 
 @class_route(blp, '/api/v1/employees/me')
@@ -45,8 +45,7 @@ class EmployeeInfo(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
 
         if employee is None:
@@ -60,9 +59,7 @@ class EmployeeRegister(MethodView):
     init_every_request = False
 
     @requires_token
-    def post(self, token: dict[str, Any],
-             employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
-
+    def post(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         # Validate that the user is an admin
         if token['role'] != Role.ADMIN.value:
             return error_response('Only administrators can create employees.', 403)
@@ -77,7 +74,7 @@ class EmployeeRegister(MethodView):
         try:
             data: RegisterEmployeeBody = auth_schema.load(req_json)
         except ValidationError as err:
-            return error_response(err.messages, 400)
+            return validation_error_response(err)
 
         # Create employee (without client_id)
         employee = Employee(
