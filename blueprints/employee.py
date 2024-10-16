@@ -33,7 +33,8 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
 @dataclass
 class RegisterEmployeeBody:
     name: str = field(metadata={'validate': marshmallow.validate.Length(min=1, max=60)})
-    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(
+        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
     password: str = field(metadata={'validate': marshmallow.validate.Length(min=8)})
     role: str = field(
         metadata={'validate': marshmallow.validate.OneOf([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value])}
@@ -58,12 +59,7 @@ class EmployeeInfo(MethodView):
 class EmployeeRegister(MethodView):
     init_every_request = False
 
-    @requires_token
-    def post(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
-        # Validate that the user is an admin
-        if token['role'] != Role.ADMIN.value:
-            return error_response('Only administrators can create employees.', 403)
-
+    def post(self, employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         # Validate request body
         auth_schema = marshmallow_dataclass.class_schema(RegisterEmployeeBody)()
         req_json = request.get_json(silent=True)
