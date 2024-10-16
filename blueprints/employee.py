@@ -1,19 +1,19 @@
 import uuid
+from dataclasses import dataclass, field
 from typing import Any
 
+import marshmallow.validate
+import marshmallow_dataclass
 from dependency_injector.wiring import Provide
 from flask import Blueprint, Response, request
 from flask.views import MethodView
-from dataclasses import dataclass, field
-
 from marshmallow import ValidationError
 from passlib.handlers.pbkdf2 import pbkdf2_sha256
 
 from containers import Container
 from models import Employee, Role
-from repositories import EmployeeRepository, DuplicateEmailError
-import marshmallow.validate
-import marshmallow_dataclass
+from repositories import DuplicateEmailError, EmployeeRepository
+
 from .util import class_route, error_response, json_response, requires_token
 
 blp = Blueprint('Employees', __name__)
