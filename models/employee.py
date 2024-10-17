@@ -1,6 +1,13 @@
 from dataclasses import dataclass
 
 from .role import Role
+from enum import Enum
+
+
+class InvitationStatus(Enum):
+    UNINVITED = 'uninvited'
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
 
 
 @dataclass
@@ -11,3 +18,4 @@ class Employee:
     email: str
     password: str
     role: Role
+    invitation_status: InvitationStatus = InvitationStatus.UNINVITED

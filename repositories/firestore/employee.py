@@ -13,6 +13,7 @@ from google.cloud.firestore_v1 import CollectionReference, DocumentReference, Do
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
+from models.employee import InvitationStatus
 from repositories import DuplicateEmailError, EmployeeRepository
 
 from .constants import UUID_UNASSIGNED
@@ -34,6 +35,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
                 **cast(dict[str, Any], doc.to_dict()),
                 'id': doc.id,
                 'client_id': client_id,
+                'invitation_status': InvitationStatus(doc.get('invitation_status', InvitationStatus.UNINVITED.value)),
             },
             config=dacite.Config(cast=[Enum]),
         )
@@ -77,6 +79,9 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         employee_dict = asdict(employee)
         del employee_dict['id']
         del employee_dict['client_id']
+
+        # Convert enum to string for Firestore storage
+        employee_dict['invitation_status'] = employee.invitation_status.value
 
         client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
 

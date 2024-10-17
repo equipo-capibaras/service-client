@@ -12,6 +12,7 @@ from passlib.handlers.pbkdf2 import pbkdf2_sha256
 
 from containers import Container
 from models import Employee, Role
+from models.employee import InvitationStatus
 from repositories import EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
@@ -27,6 +28,7 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
         'name': employee.name,
         'email': employee.email,
         'role': employee.role.value,
+        'invitationStatus': employee.invitation_status.value,
     }
 
 
@@ -81,6 +83,7 @@ class EmployeeRegister(MethodView):
             email=data.email,
             password=pbkdf2_sha256.hash(data.password),
             role=Role(data.role),
+            invitation_status=InvitationStatus.UNINVITED,
         )
 
         # Save employee
