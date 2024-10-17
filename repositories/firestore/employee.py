@@ -8,15 +8,12 @@ from typing import Any, cast
 import dacite
 from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
-from google.cloud.firestore_v1 import (
-    CollectionReference,
-    DocumentReference,
-    DocumentSnapshot,
-)
+from google.cloud.firestore import transactional
+from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Transaction
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
-from repositories import EmployeeRepository
+from repositories import DuplicateEmailError, EmployeeRepository
 
 from .constants import UUID_UNASSIGNED
 
@@ -54,8 +51,10 @@ class FirestoreEmployeeRepository(EmployeeRepository):
 
         return self.doc_to_employee(doc)
 
-    def find_by_email(self, email: str) -> Employee | None:
-        docs = self.db.collection_group('employees').where(filter=FieldFilter('email', '==', email)).get()  # type: ignore[no-untyped-call]
+    def _find_by_email(self, email: str, transaction: Transaction | None = None) -> DocumentSnapshot | None:
+        docs = (
+            self.db.collection_group('employees').where(filter=FieldFilter('email', '==', email)).get(transaction=transaction)  # type: ignore[no-untyped-call]
+        )
 
         if len(docs) == 0:
             return None
@@ -64,7 +63,15 @@ class FirestoreEmployeeRepository(EmployeeRepository):
             self.logger.error('Multiple employees found with email %s', email)
             return None
 
-        return self.doc_to_employee(docs[0])
+        return cast(DocumentSnapshot, docs[0])
+
+    def find_by_email(self, email: str) -> Employee | None:
+        doc = self._find_by_email(email)
+
+        if doc is None:
+            return None
+
+        return self.doc_to_employee(doc)
 
     def create(self, employee: Employee) -> None:
         employee_dict = asdict(employee)
@@ -79,7 +86,15 @@ class FirestoreEmployeeRepository(EmployeeRepository):
 
         client_ref = self.db.collection('clients').document(client_id)
         employee_ref = cast(CollectionReference, client_ref.collection('employees')).document(employee.id)
-        employee_ref.create(employee_dict)
+
+        @transactional  # type: ignore[misc]
+        def create_employee_transaction(transaction: Transaction, employee_dict: dict[str, Any]) -> None:
+            if self._find_by_email(employee_dict['email'], transaction) is not None:
+                raise DuplicateEmailError(employee_dict['email'])
+
+            transaction.create(employee_ref, employee_dict)
+
+        create_employee_transaction(self.db.transaction(), employee_dict)
 
     def delete_all(self) -> None:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection_group('employees').stream()

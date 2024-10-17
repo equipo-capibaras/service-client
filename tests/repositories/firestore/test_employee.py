@@ -11,6 +11,7 @@ from passlib.hash import pbkdf2_sha256
 from unittest_parametrize import ParametrizedTestCase, parametrize
 
 from models import Client, Employee, Plan, Role
+from repositories import DuplicateEmailError
 from repositories.firestore import UUID_UNASSIGNED, FirestoreEmployeeRepository
 
 FIRESTORE_DATABASE = '(default)'
@@ -172,6 +173,44 @@ class TestEmployee(ParametrizedTestCase):
         del employee_dict['id']
         del employee_dict['client_id']
         self.assertEqual(doc.to_dict(), employee_dict)
+
+    def test_create_duplicate(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        employee1 = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=client_id,
+            name=self.faker.name(),
+            email=self.faker.unique.email(),
+            password=pbkdf2_sha256.hash(self.faker.password()),
+            role=self.faker.random_element(list(Role)),
+        )
+        employee_dict = asdict(employee1)
+        del employee_dict['id']
+        del employee_dict['client_id']
+        self.client.collection('clients').document(client_id).collection('employees').document(employee1.id).set(employee_dict)
+
+        employee2 = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=client_id,
+            name=self.faker.name(),
+            email=employee1.email,
+            password=pbkdf2_sha256.hash(self.faker.password()),
+            role=self.faker.random_element(list(Role)),
+        )
+
+        with self.assertRaises(DuplicateEmailError) as context:
+            self.repo.create(employee2)
+
+        self.assertEqual(str(context.exception), f"A user with the email '{employee2.email}' already exists.")
+
+        employee_ref = cast(
+            DocumentReference,
+            self.client.collection('clients').document(client_id).collection('employees').document(employee2.id),
+        )
+        doc = employee_ref.get()
+        self.assertFalse(doc.exists)
 
     def test_delete_all(self) -> None:
         employees: list[Employee] = []
