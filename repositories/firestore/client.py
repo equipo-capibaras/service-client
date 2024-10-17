@@ -6,10 +6,7 @@ from typing import Any, cast
 
 import dacite
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
-from google.cloud.firestore_v1 import (
-    DocumentReference,
-    DocumentSnapshot,
-)
+from google.cloud.firestore_v1 import DocumentReference, DocumentSnapshot
 
 from models import Client
 from repositories import ClientRepository

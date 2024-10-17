@@ -1,5 +1,5 @@
 from .client import ClientRepository
 from .employee import EmployeeRepository
-from .errors import UnexpectedError
+from .errors import DuplicateEmailError
 
-__all__ = ['ClientRepository', 'EmployeeRepository', 'UnexpectedError']
+__all__ = ['ClientRepository', 'EmployeeRepository', 'DuplicateEmailError']

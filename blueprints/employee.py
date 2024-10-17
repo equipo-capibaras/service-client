@@ -13,7 +13,7 @@ from passlib.handlers.pbkdf2 import pbkdf2_sha256
 from containers import Container
 from models import Employee, Role
 from repositories import EmployeeRepository
-from repositories.errors import UnexpectedError
+from repositories.errors import DuplicateEmailError
 
 from .util import class_route, error_response, json_response, requires_token, validation_error_response
 
@@ -67,32 +67,26 @@ class EmployeeRegister(MethodView):
         if req_json is None:
             return error_response('Request body must be a JSON object.', 400)
 
+        # Validate request body
         try:
             data: RegisterEmployeeBody = auth_schema.load(req_json)
         except ValidationError as err:
             return validation_error_response(err)
 
+        # Create employee
+        employee = Employee(
+            id=str(uuid.uuid4()),
+            client_id=None,
+            name=data.name,
+            email=data.email,
+            password=pbkdf2_sha256.hash(data.password),
+            role=Role(data.role),
+        )
+
+        # Save employee
         try:
-            # Check if email is already registered
-            existing_employee = employee_repo.find_by_email(data.email)
-            if existing_employee is not None:
-                return error_response('Email already registered', 400)
-
-            # Create new employee
-            employee = Employee(
-                id=str(uuid.uuid4()),
-                client_id=None,
-                name=data.name,
-                email=data.email,
-                password=pbkdf2_sha256.hash(data.password),
-                role=Role(data.role),
-            )
-
-            # Save employee
             employee_repo.create(employee)
+        except DuplicateEmailError:
+            return error_response('Email already registered', 409)
 
-            # Return response
-            return json_response(employee_to_dict(employee), 201)
-
-        except UnexpectedError:
-            return error_response('An unexpected error occurred.', 500)
+        return json_response(employee_to_dict(employee), 201)

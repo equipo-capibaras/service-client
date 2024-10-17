@@ -11,6 +11,7 @@ from passlib.hash import pbkdf2_sha256
 from unittest_parametrize import ParametrizedTestCase, parametrize
 
 from models import Client, Employee, Plan, Role
+from repositories import DuplicateEmailError
 from repositories.firestore import UUID_UNASSIGNED, FirestoreEmployeeRepository
 
 FIRESTORE_DATABASE = '(default)'
@@ -37,7 +38,7 @@ class TestEmployee(ParametrizedTestCase):
         [
             ({0: 0, 1: 1, 2: 2}, 0, True, 0),  # Employee found
             ({0: 0, 1: 1, 2: 2}, 3, True, None),  # Employee not found
-            ({0: 0, 1: 0, 2: 2}, 0, True, 0),  # Multiple employees found, expect the first one
+            ({0: 0, 1: 0, 2: 2}, 0, True, None),  # Multiple employees found
             ({0: 0, 1: 1, 2: 2}, 0, False, 0),  # Unassigned employee found
         ],
     )
@@ -79,16 +80,19 @@ class TestEmployee(ParametrizedTestCase):
         if duplicate_emails:
             with self.assertLogs() as cm:
                 employee_db = self.repo.find_by_email(self.emails[find_idx])
-                self.assertIsNotNone(employee_db)
-                self.assertEqual(cm.records[0].message, f'Multiple employees found with email {self.emails[find_idx]}')
-                self.assertEqual(cm.records[0].levelname, 'ERROR')
         else:
-            employee_db = self.repo.find_by_email(self.emails[find_idx])
+            with self.assertNoLogs():
+                employee_db = self.repo.find_by_email(self.emails[find_idx])
 
         if expected is not None:
             self.assertIsNotNone(employee_db)
+            self.assertEqual(employee_db, employees[expected])
         else:
             self.assertIsNone(employee_db)
+
+            if duplicate_emails:
+                self.assertEqual(cm.records[0].message, f'Multiple employees found with email {self.emails[find_idx]}')
+                self.assertEqual(cm.records[0].levelname, 'ERROR')
 
     @parametrize(
         ('assigned',),
@@ -169,6 +173,44 @@ class TestEmployee(ParametrizedTestCase):
         del employee_dict['id']
         del employee_dict['client_id']
         self.assertEqual(doc.to_dict(), employee_dict)
+
+    def test_create_duplicate(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        employee1 = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=client_id,
+            name=self.faker.name(),
+            email=self.faker.unique.email(),
+            password=pbkdf2_sha256.hash(self.faker.password()),
+            role=self.faker.random_element(list(Role)),
+        )
+        employee_dict = asdict(employee1)
+        del employee_dict['id']
+        del employee_dict['client_id']
+        self.client.collection('clients').document(client_id).collection('employees').document(employee1.id).set(employee_dict)
+
+        employee2 = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=client_id,
+            name=self.faker.name(),
+            email=employee1.email,
+            password=pbkdf2_sha256.hash(self.faker.password()),
+            role=self.faker.random_element(list(Role)),
+        )
+
+        with self.assertRaises(DuplicateEmailError) as context:
+            self.repo.create(employee2)
+
+        self.assertEqual(str(context.exception), f"A user with the email '{employee2.email}' already exists.")
+
+        employee_ref = cast(
+            DocumentReference,
+            self.client.collection('clients').document(client_id).collection('employees').document(employee2.id),
+        )
+        doc = employee_ref.get()
+        self.assertFalse(doc.exists)
 
     def test_delete_all(self) -> None:
         employees: list[Employee] = []
