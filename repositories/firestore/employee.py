@@ -25,9 +25,17 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def doc_to_employee(self, doc: DocumentSnapshot) -> Employee:
-        client_id = cast(DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
+        client_id = cast(DocumentReference,
+                         cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
         if client_id == UUID_UNASSIGNED:
             client_id = None
+
+        # Obtiene invitation_status del documento y maneja el valor predeterminado si no está presente
+        invitation_status_str = doc.get('invitation_status')
+        if invitation_status_str is None:
+            invitation_status = InvitationStatus.UNINVITED
+        else:
+            invitation_status = InvitationStatus(invitation_status_str)
 
         return dacite.from_dict(
             data_class=Employee,
@@ -35,7 +43,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
                 **cast(dict[str, Any], doc.to_dict()),
                 'id': doc.id,
                 'client_id': client_id,
-                'invitation_status': InvitationStatus(doc.get('invitation_status', InvitationStatus.UNINVITED.value)),
+                'invitation_status': invitation_status,
             },
             config=dacite.Config(cast=[Enum]),
         )

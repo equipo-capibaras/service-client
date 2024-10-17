@@ -11,6 +11,7 @@ from passlib.hash import pbkdf2_sha256
 from unittest_parametrize import ParametrizedTestCase, parametrize
 
 from models import Client, Employee, Plan, Role
+from models.employee import InvitationStatus
 from repositories import DuplicateEmailError
 from repositories.firestore import UUID_UNASSIGNED, FirestoreEmployeeRepository
 
@@ -43,7 +44,7 @@ class TestEmployee(ParametrizedTestCase):
         ],
     )
     def test_find_by_email(
-        self, *, email_idx_map: dict[int, int], find_idx: int, assigned: bool, expected: int | None
+            self, *, email_idx_map: dict[int, int], find_idx: int, assigned: bool, expected: int | None
     ) -> None:
         client = Client(
             id=cast(str, self.faker.uuid4()),
@@ -65,11 +66,17 @@ class TestEmployee(ParametrizedTestCase):
                 email=self.emails[email_idx_map[idx]],
                 password=pbkdf2_sha256.hash(self.faker.password()),
                 role=self.faker.random_element(list(Role)),
+                invitation_status=InvitationStatus.UNINVITED  # Set an initial invitation status
             )
             employees.append(employee)
             employee_dict = asdict(employee)
             del employee_dict['id']
             del employee_dict['client_id']
+
+            # Convert the enum to string for Firestore
+            employee_dict['invitation_status'] = employee.invitation_status.value
+            employee_dict['role'] = employee.role.value
+
             client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
             self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(
                 employee_dict
@@ -112,12 +119,19 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.UNINVITED  # Establecemos un estado de invitación inicial
         )
         employee_dict = asdict(employee)
         del employee_dict['id']
         del employee_dict['client_id']
+
+        # Convertir los valores del enum a cadenas para Firestore
+        employee_dict['invitation_status'] = employee.invitation_status.value
+        employee_dict['role'] = employee.role.value
+
         client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
-        self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(employee_dict)
+        self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(
+            employee_dict)
 
         employee_db = self.repo.get(employee.id, employee.client_id)
 
@@ -156,6 +170,7 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.UNINVITED  # Establecemos un estado de invitación inicial
         )
 
         self.repo.create(employee)
@@ -169,10 +184,17 @@ class TestEmployee(ParametrizedTestCase):
 
         self.assertTrue(doc.exists)
 
+        # Convertir el diccionario obtenido desde Firestore de vuelta al formato del objeto Employee
+        employee_dict_from_firestore = doc.to_dict()
+        employee_dict_from_firestore['role'] = Role(employee_dict_from_firestore['role'])
+        employee_dict_from_firestore['invitation_status'] = InvitationStatus(
+            employee_dict_from_firestore['invitation_status'])
+
         employee_dict = asdict(employee)
         del employee_dict['id']
         del employee_dict['client_id']
-        self.assertEqual(doc.to_dict(), employee_dict)
+
+        self.assertEqual(employee_dict_from_firestore, employee_dict)
 
     def test_create_duplicate(self) -> None:
         client_id = cast(str, self.faker.uuid4())
@@ -185,11 +207,18 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.UNINVITED  # Set an initial invitation status
         )
         employee_dict = asdict(employee1)
         del employee_dict['id']
         del employee_dict['client_id']
-        self.client.collection('clients').document(client_id).collection('employees').document(employee1.id).set(employee_dict)
+
+        # Convert the enum to string for Firestore
+        employee_dict['invitation_status'] = employee1.invitation_status.value
+        employee_dict['role'] = employee1.role.value
+
+        self.client.collection('clients').document(client_id).collection('employees').document(employee1.id).set(
+            employee_dict)
 
         employee2 = Employee(
             id=cast(str, self.faker.uuid4()),
@@ -198,6 +227,7 @@ class TestEmployee(ParametrizedTestCase):
             email=employee1.email,
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.PENDING  # Set an initial invitation status
         )
 
         with self.assertRaises(DuplicateEmailError) as context:
@@ -236,11 +266,17 @@ class TestEmployee(ParametrizedTestCase):
                     email=self.faker.unique.email(),
                     password=pbkdf2_sha256.hash(self.faker.password()),
                     role=self.faker.random_element(list(Role)),
+                    invitation_status=InvitationStatus.PENDING  # Set the initial status
                 )
                 employees.append(employee)
                 employee_dict = asdict(employee)
                 del employee_dict['id']
                 del employee_dict['client_id']
+
+                # Convert Enums to strings
+                employee_dict['role'] = employee.role.value
+                employee_dict['invitation_status'] = employee.invitation_status.value
+
                 self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
                     employee_dict
                 )
@@ -250,7 +286,8 @@ class TestEmployee(ParametrizedTestCase):
         for employee in employees:
             employee_ref = cast(
                 DocumentReference,
-                self.client.collection('clients').document(employee.client_id).collection('employees').document(employee.id),
+                self.client.collection('clients').document(employee.client_id).collection('employees').document(
+                    employee.id),
             )
 
             doc = employee_ref.get()
