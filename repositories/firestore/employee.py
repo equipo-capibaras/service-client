@@ -25,8 +25,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def doc_to_employee(self, doc: DocumentSnapshot) -> Employee:
-        client_id = cast(DocumentReference,
-                         cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
+        client_id = cast(DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
         if client_id == UUID_UNASSIGNED:
             client_id = None
 

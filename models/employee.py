@@ -1,7 +1,7 @@
 from dataclasses import dataclass
+from enum import Enum
 
 from .role import Role
-from enum import Enum
 
 
 class InvitationStatus(Enum):
