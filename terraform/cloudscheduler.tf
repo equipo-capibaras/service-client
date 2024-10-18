@@ -26,3 +26,27 @@ resource "google_cloud_scheduler_job" "default" {
 
   depends_on = [ google_project_service.cloudscheduler ]
 }
+
+# Creates a Cloud Scheduler job, that backups the firestore database daily.
+resource "google_cloud_scheduler_job" "backup" {
+  name             = "backup-${local.service_name}"
+  region           = local.region
+  schedule         = "30 7 * * *"
+  time_zone        = "Etc/UTC"
+  attempt_deadline = "30s"
+
+  retry_config {
+    retry_count = 1
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${local.service_name}-${data.google_project.default.number}.${local.region}.run.app/api/v1/backup/${local.service_name}"
+    oidc_token {
+      service_account_email = data.google_service_account.backup.email
+      audience = "https://${local.service_name}-${data.google_project.default.number}.${local.region}.run.app"
+    }
+  }
+
+  depends_on = [ google_project_service.cloudscheduler ]
+}
