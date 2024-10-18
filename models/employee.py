@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 from .role import Role
@@ -19,3 +20,4 @@ class Employee:
     password: str
     role: Role
     invitation_status: InvitationStatus = InvitationStatus.UNINVITED
+    invitation_date: datetime | None = None

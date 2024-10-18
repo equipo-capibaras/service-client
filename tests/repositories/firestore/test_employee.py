@@ -1,5 +1,6 @@
 import os
 from dataclasses import asdict
+from datetime import UTC, datetime
 from typing import cast
 from unittest import skipUnless
 
@@ -162,6 +163,9 @@ class TestEmployee(ParametrizedTestCase):
         del client_dict['id']
         self.client.collection('clients').document(client.id).set(client_dict)
 
+        # Establecemos una fecha de invitación inicial
+        invitation_date = datetime.now(UTC)
+
         employee = Employee(
             id=cast(str, self.faker.uuid4()),
             client_id=client.id if assigned else None,
@@ -169,7 +173,8 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
-            invitation_status=InvitationStatus.UNINVITED,  # Establecemos un estado de invitación inicial
+            invitation_status=InvitationStatus.UNINVITED,  # Estado inicial de la invitación
+            invitation_date=invitation_date,  # Nueva fecha de invitación
         )
 
         self.repo.create(employee)
@@ -193,6 +198,13 @@ class TestEmployee(ParametrizedTestCase):
         # Convertir valores de enums desde Firestore a los objetos correctos
         employee_dict_from_firestore['role'] = Role(employee_dict_from_firestore['role'])
         employee_dict_from_firestore['invitation_status'] = InvitationStatus(employee_dict_from_firestore['invitation_status'])
+
+        # Convertir la fecha de invitación de Firestore a datetime
+        employee_dict_from_firestore['invitation_date'] = (
+            datetime.fromisoformat(employee_dict_from_firestore['invitation_date'])
+            if employee_dict_from_firestore['invitation_date']
+            else None
+        )
 
         employee_dict = asdict(employee)
         del employee_dict['id']

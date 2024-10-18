@@ -29,6 +29,7 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
         'email': employee.email,
         'role': employee.role.value,
         'invitationStatus': employee.invitation_status.value,
+        'invitationDate': employee.invitation_date.isoformat() if employee.invitation_date else None,
     }
 
 
@@ -84,6 +85,7 @@ class EmployeeRegister(MethodView):
             password=pbkdf2_sha256.hash(data.password),
             role=Role(data.role),
             invitation_status=InvitationStatus.UNINVITED,
+            invitation_date=None,
         )
 
         # Save employee
