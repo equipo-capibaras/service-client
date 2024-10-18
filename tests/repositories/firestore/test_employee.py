@@ -307,3 +307,104 @@ class TestEmployee(ParametrizedTestCase):
             doc = employee_ref.get()
 
             self.assertFalse(doc.exists)
+
+    def test_count_by_client_id(self) -> None:
+        # Crear un cliente
+        client = Client(
+            id=cast(str, self.faker.uuid4()),
+            name=self.faker.company(),
+            plan=self.faker.random_element(list(Plan)),
+            email_incidents=self.faker.unique.email(),
+        )
+
+        client_dict = asdict(client)
+        del client_dict['id']
+        self.client.collection('clients').document(client.id).set(client_dict)
+
+        # Contar empleados antes de agregar (debe ser cero)
+        count = self.repo.count_by_client_id(client.id)
+        self.assertEqual(count, 0)
+
+        # Agregar empleados y verificar la cantidad
+        employees: list[Employee] = []
+        for _ in range(5):
+            employee = Employee(
+                id=cast(str, self.faker.uuid4()),
+                client_id=client.id,
+                name=self.faker.name(),
+                email=self.faker.unique.email(),
+                password=pbkdf2_sha256.hash(self.faker.password()),
+                role=self.faker.random_element(list(Role)),
+                invitation_status=InvitationStatus.UNINVITED,
+            )
+            employees.append(employee)
+            employee_dict = asdict(employee)
+            del employee_dict['id']
+            del employee_dict['client_id']
+
+            # Convertir enums a valores para Firestore
+            employee_dict['invitation_status'] = employee.invitation_status.value
+            employee_dict['role'] = employee.role.value
+
+            self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
+                employee_dict)
+
+        # Contar empleados nuevamente (debe ser 5)
+        count = self.repo.count_by_client_id(client.id)
+        self.assertEqual(count, 5)
+
+    @parametrize(
+        ('page_size', 'page_number', 'expected_count'),
+        [
+            (5, 1, 5),  # Página 1 con tamaño 5 (espera 5 empleados)
+            (5, 2, 5),  # Página 2 con tamaño 5 (espera 5 empleados más)
+            (5, 3, 2),  # Página 3 con tamaño 5 (espera 2 empleados restantes)
+            (10, 1, 10),  # Página 1 con tamaño 10 (espera 10 empleados)
+        ],
+    )
+    def test_list_by_client_id(self, page_size: int, page_number: int, expected_count: int) -> None:
+        # Crear un cliente
+        client = Client(
+            id=cast(str, self.faker.uuid4()),
+            name=self.faker.company(),
+            plan=self.faker.random_element(list(Plan)),
+            email_incidents=self.faker.unique.email(),
+        )
+
+        client_dict = asdict(client)
+        del client_dict['id']
+        self.client.collection('clients').document(client.id).set(client_dict)
+
+        # Agregar empleados
+        employees: list[Employee] = []
+        for _ in range(12):
+            employee = Employee(
+                id=cast(str, self.faker.uuid4()),
+                client_id=client.id,
+                name=self.faker.name(),
+                email=self.faker.unique.email(),
+                password=pbkdf2_sha256.hash(self.faker.password()),
+                role=self.faker.random_element(list(Role)),
+                invitation_status=InvitationStatus.UNINVITED,
+                invitation_date=datetime.now(UTC),  # Agregar fecha de invitación
+            )
+            employees.append(employee)
+            employee_dict = asdict(employee)
+            del employee_dict['id']
+            del employee_dict['client_id']
+
+            # Convertir enums y fecha a valores para Firestore
+            employee_dict['invitation_status'] = employee.invitation_status.value
+            employee_dict['role'] = employee.role.value
+            employee_dict['invitation_date'] = employee.invitation_date.isoformat()
+
+            self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
+                employee_dict)
+
+        # Listar empleados en la página indicada
+        employees_listed, total_employees = self.repo.list_by_client_id(client.id, page_size, page_number)
+
+        # Verificar la cantidad de empleados devuelta y el total
+        self.assertEqual(len(employees_listed), expected_count)
+        self.assertEqual(total_employees, 12)
+
