@@ -121,37 +121,46 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         for e in stream:
             cast(DocumentReference, e.reference).delete()
 
+    def count_by_client_id(self, client_id: str) -> int:
+        """
+        Cuenta el número total de empleados para un cliente específico.
+
+        Args:
+        client_id (str): ID del cliente para el cual contar los empleados.
+
+        Returns:
+        int: Número total de empleados.
+        """
+        client_ref = self.db.collection('clients').document(client_id)
+        employees_ref = client_ref.collection('employees')
+        total_employees = len(list(employees_ref.stream()))
+        return total_employees
+
     def list_by_client_id(
-        self, client_id: str, page_size: int, page_token: str | None = None
-    ) -> tuple[list[Employee], str | None]:
+        self, client_id: str, page_size: int, page_number: int = 1
+    ) -> tuple[list[Employee], int]:
         """
         Lista los empleados de un cliente específico, ordenados por fecha de invitación descendente.
 
-        La lista admite paginación.
+        La lista admite paginación por número de página.
 
         Args:
         client_id (str): ID del cliente para el cual listar los empleados.
         page_size (int): Cantidad de empleados por página (5, 10, 20).
-        page_token (str | None): Token opcional para la paginación.
+        page_number (int): Número de la página a obtener (1 es la primera página).
 
         Returns:
-        tuple[list[Employee], str | None]: Lista de empleados y token de la siguiente página (si existe).
-
+        tuple[list[Employee], int]: Lista de empleados y el número total de empleados.
         """
         client_ref = self.db.collection('clients').document(client_id)
         query: Query = client_ref.collection('employees').order_by('invitation_date', direction=Query.DESCENDING)
 
-        if page_token:
-            query = query.start_after({'id': page_token})
-
-        query = query.limit(page_size)
+        # Saltar los elementos para llegar a la página solicitada
+        offset = (page_number - 1) * page_size
+        query = query.offset(offset).limit(page_size)
         docs = query.stream()
 
-        employees = []
-        next_page_token = None
+        employees = [self.doc_to_employee(doc) for doc in docs]
 
-        for doc in docs:
-            employees.append(self.doc_to_employee(doc))
-            next_page_token = doc.id  # El último ID de documento será el token para la siguiente página
-
-        return employees, next_page_token
+        total_employees = self.count_by_client_id(client_id)
+        return employees, total_employees

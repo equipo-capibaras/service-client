@@ -102,7 +102,8 @@ class EmployeeList(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any],
+            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         # Verificar si el usuario tiene permisos de administrador
         if token['role'] != Role.ADMIN.value:
             return error_response('Forbidden: You do not have access to this resource.', 403)
@@ -110,20 +111,28 @@ class EmployeeList(MethodView):
         client_id = token['cid']
 
         # Parámetros de paginación opcionales
-        page_size = request.args.get('pageSize', default=5, type=int)
-        page_token = request.args.get('pageToken', default=None, type=str)
+        page_size = request.args.get('page_size', default=5, type=int)
+        page_number = request.args.get('page_number', default=1, type=int)
 
         # Validar el valor de page_size
         if page_size not in [5, 10, 20]:
             return error_response('Invalid pageSize. Allowed values are 5, 10, 20.', 400)
 
-        # Obtener empleados usando el repositorio
-        employees, next_page_token = employee_repo.list_by_client_id(client_id, page_size, page_token)
+        # Validar el valor de page_number
+        if page_number < 1:
+            return error_response('Invalid pageNumber. Page number must be 1 or greater.', 400)
 
-        # Crear la respuesta con los empleados y el token de la siguiente página (si existe)
+        # Obtener empleados y el total de empleados usando el repositorio
+        employees, total_employees = employee_repo.list_by_client_id(client_id, page_size, page_number)
+
+        # Calcular el número total de páginas
+        total_pages = (total_employees + page_size - 1) // page_size
+
+        # Crear la respuesta con los empleados y la información de paginación
         response_data = {
             'employees': [employee_to_dict(employee) for employee in employees],
-            'nextPageToken': next_page_token,
+            'totalPages': total_pages,
+            'currentPage': page_number,
         }
 
         return json_response(response_data, 200)
