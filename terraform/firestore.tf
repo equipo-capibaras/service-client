@@ -14,6 +14,14 @@ resource "google_project_iam_member" "firestore" {
   member  = google_service_account.service.member
 }
 
+# Grants the service account the "Datastore Import/Export Admin" role on the project.
+# This allows the service account to backup the firestore database.
+resource "google_project_iam_member" "firestore_backup" {
+  project = local.project_id
+  role    = "roles/datastore.importExportAdmin"
+  member  = google_service_account.service.member
+}
+
 # Creates a Firestore database for this microservice.
 resource "google_firestore_database" "default" {
   name                              = local.service_name
