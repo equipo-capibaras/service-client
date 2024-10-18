@@ -120,7 +120,8 @@ class TestEmployeeList(ParametrizedTestCase):
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
 
-        self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid pageSize. Allowed values are 5, 10, 20.'})
+        allowed_page_sizes = [5, 10, 20]
+        self.assertEqual(resp_data, {'code': 400, 'message': f'Invalid page_size. Allowed values are {allowed_page_sizes}.'})
 
     def test_invalid_page_number(self) -> None:
         # Simular un token válido con permisos de administrador
@@ -143,4 +144,4 @@ class TestEmployeeList(ParametrizedTestCase):
         # Verificar el código de estado de la respuesta y el mensaje de error esperado
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
-        self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid pageNumber. Page number must be 1 or greater.'})
+        self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid page_number. Page number must be 1 or greater.'})

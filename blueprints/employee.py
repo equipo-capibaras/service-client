@@ -103,31 +103,32 @@ class EmployeeList(MethodView):
 
     @requires_token
     def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
-        # Verificar si el usuario tiene permisos de administrador
+        # Verify if the user has administrator permissions
         if token['role'] != Role.ADMIN.value:
             return error_response('Forbidden: You do not have access to this resource.', 403)
 
         client_id = token['cid']
 
-        # Parámetros de paginación opcionales
+        # Optional pagination parameters
         page_size = request.args.get('page_size', default=5, type=int)
         page_number = request.args.get('page_number', default=1, type=int)
 
-        # Validar el valor de page_size
-        if page_size not in [5, 10, 20]:
-            return error_response('Invalid pageSize. Allowed values are 5, 10, 20.', 400)
+        # Validate the value of page_size
+        allowed_page_sizes = [5, 10, 20]
+        if page_size not in allowed_page_sizes:
+            return error_response(f'Invalid page_size. Allowed values are {allowed_page_sizes}.', 400)
 
-        # Validar el valor de page_number
+        # Validate the value of page_number
         if page_number < 1:
-            return error_response('Invalid pageNumber. Page number must be 1 or greater.', 400)
+            return error_response('Invalid page_number. Page number must be 1 or greater.', 400)
 
-        # Obtener empleados y el total de empleados usando el repositorio
+        # Retrieve employees and the total number of employees using the repository
         employees, total_employees = employee_repo.list_by_client_id(client_id, page_size, page_number)
 
-        # Calcular el número total de páginas
+        # Calculate the total number of pages
         total_pages = (total_employees + page_size - 1) // page_size
 
-        # Crear la respuesta con los empleados y la información de paginación
+        # Create the response with employees and pagination information
         response_data = {
             'employees': [employee_to_dict(employee) for employee in employees],
             'totalPages': total_pages,

@@ -120,13 +120,13 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
-            invitation_status=InvitationStatus.UNINVITED,  # Establecemos un estado de invitación inicial
+            invitation_status=InvitationStatus.UNINVITED,  # Statablish an initial invitation status
         )
         employee_dict = asdict(employee)
         del employee_dict['id']
         del employee_dict['client_id']
 
-        # Convertir los valores del enum a cadenas para Firestore
+        # Convert the enum to string for Firestore
         employee_dict['invitation_status'] = employee.invitation_status.value
         employee_dict['role'] = employee.role.value
 
@@ -163,7 +163,7 @@ class TestEmployee(ParametrizedTestCase):
         del client_dict['id']
         self.client.collection('clients').document(client.id).set(client_dict)
 
-        # Establecemos una fecha de invitación inicial
+        # Start the invitation date
         invitation_date = datetime.now(UTC)
 
         employee = Employee(
@@ -173,8 +173,8 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
-            invitation_status=InvitationStatus.UNINVITED,  # Estado inicial de la invitación
-            invitation_date=invitation_date,  # Nueva fecha de invitación
+            invitation_status=InvitationStatus.UNINVITED,  # Initial invitation status
+            invitation_date=invitation_date,  # New invitation date
         )
 
         self.repo.create(employee)
@@ -188,18 +188,18 @@ class TestEmployee(ParametrizedTestCase):
 
         self.assertTrue(doc.exists)
 
-        # Convertir el diccionario obtenido desde Firestore de vuelta al formato del objeto Employee
+        # Transform the Firestore document to a dictionary
         employee_dict_from_firestore = doc.to_dict()
 
-        # Verificar que el diccionario no sea None
+        # Verify that the document in Firestore matches the employee object
         if employee_dict_from_firestore is None:
             raise ValueError(f'Document with ID {employee.id} not found in Firestore')
 
-        # Convertir valores de enums desde Firestore a los objetos correctos
+        # Transform the Firestore document to a dictionary
         employee_dict_from_firestore['role'] = Role(employee_dict_from_firestore['role'])
         employee_dict_from_firestore['invitation_status'] = InvitationStatus(employee_dict_from_firestore['invitation_status'])
 
-        # Convertir la fecha de invitación de Firestore a datetime
+        # Transform the invitation date to a datetime object
         employee_dict_from_firestore['invitation_date'] = (
             datetime.fromisoformat(employee_dict_from_firestore['invitation_date'])
             if employee_dict_from_firestore['invitation_date']
@@ -309,7 +309,7 @@ class TestEmployee(ParametrizedTestCase):
             self.assertFalse(doc.exists)
 
     def test_count_by_client_id(self) -> None:
-        # Crear un cliente
+        # Create a client
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
@@ -321,11 +321,11 @@ class TestEmployee(ParametrizedTestCase):
         del client_dict['id']
         self.client.collection('clients').document(client.id).set(client_dict)
 
-        # Contar empleados antes de agregar (debe ser cero)
+        # Count the number of employees (should be 0)
         count = self.repo.count_by_client_id(client.id)
         self.assertEqual(count, 0)
 
-        # Agregar empleados y verificar la cantidad
+        # Add 5 employees to Firestore
         employees: list[Employee] = []
         for _ in range(5):
             employee = Employee(
@@ -342,7 +342,7 @@ class TestEmployee(ParametrizedTestCase):
             del employee_dict['id']
             del employee_dict['client_id']
 
-            # Convertir enums a valores para Firestore
+            # Transform enums to strings
             employee_dict['invitation_status'] = employee.invitation_status.value
             employee_dict['role'] = employee.role.value
 
@@ -350,7 +350,7 @@ class TestEmployee(ParametrizedTestCase):
                 employee_dict
             )
 
-        # Contar empleados nuevamente (debe ser 5)
+        # Count the number of employees (should be 5)
         count = self.repo.count_by_client_id(client.id)
         self.assertEqual(count, 5)
 
@@ -364,7 +364,7 @@ class TestEmployee(ParametrizedTestCase):
         ],
     )
     def test_list_by_client_id(self, page_size: int, page_number: int, expected_count: int) -> None:
-        # Crear un cliente
+        # Create a client
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
@@ -376,7 +376,7 @@ class TestEmployee(ParametrizedTestCase):
         del client_dict['id']
         self.client.collection('clients').document(client.id).set(client_dict)
 
-        # Agregar empleados
+        # Add 12 employees to Firestore
         employees: list[Employee] = []
         for _ in range(12):
             employee = Employee(
@@ -387,14 +387,14 @@ class TestEmployee(ParametrizedTestCase):
                 password=pbkdf2_sha256.hash(self.faker.password()),
                 role=self.faker.random_element(list(Role)),
                 invitation_status=InvitationStatus.UNINVITED,
-                invitation_date=datetime.now(UTC),  # Agregar fecha de invitación
+                invitation_date=datetime.now(UTC),  # Add the current date
             )
             employees.append(employee)
             employee_dict = asdict(employee)
             del employee_dict['id']
             del employee_dict['client_id']
 
-            # Convertir enums y fecha a valores para Firestore
+            # Convert enums to strings
             employee_dict['invitation_status'] = employee.invitation_status.value
             employee_dict['role'] = employee.role.value
             if employee.invitation_date is not None:
@@ -404,9 +404,9 @@ class TestEmployee(ParametrizedTestCase):
                 employee_dict
             )
 
-        # Listar empleados en la página indicada
+        # List the employees
         employees_listed, total_employees = self.repo.list_by_client_id(client.id, page_size, page_number)
 
-        # Verificar la cantidad de empleados devuelta y el total
+        # Verify the expected number of employees
         self.assertEqual(len(employees_listed), expected_count)
         self.assertEqual(total_employees, 12)
