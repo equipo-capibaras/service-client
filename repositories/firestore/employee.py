@@ -9,7 +9,7 @@ import dacite
 from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 from google.cloud.firestore import transactional
-from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Transaction
+from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Transaction, Query
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
@@ -25,7 +25,8 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def doc_to_employee(self, doc: DocumentSnapshot) -> Employee:
-        client_id = cast(DocumentReference, cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
+        client_id = cast(DocumentReference,
+                         cast(CollectionReference, cast(DocumentReference, doc.reference).parent).parent).id
         if client_id == UUID_UNASSIGNED:
             client_id = None
 
@@ -62,7 +63,8 @@ class FirestoreEmployeeRepository(EmployeeRepository):
 
     def _find_by_email(self, email: str, transaction: Transaction | None = None) -> DocumentSnapshot | None:
         docs = (
-            self.db.collection_group('employees').where(filter=FieldFilter('email', '==', email)).get(transaction=transaction)  # type: ignore[no-untyped-call]
+            self.db.collection_group('employees').where(filter=FieldFilter('email', '==', email)).get(
+                transaction=transaction)  # type: ignore[no-untyped-call]
         )
 
         if len(docs) == 0:
@@ -112,3 +114,39 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection_group('employees').stream()
         for e in stream:
             cast(DocumentReference, e.reference).delete()
+
+    def list_by_client_id(
+            self,
+            client_id: str,
+            page_size: int,
+            page_token: str | None = None
+    ) -> tuple[list[Employee], str | None]:
+        """
+                Lista los empleados de un cliente específico, ordenados por fecha de invitación descendente.
+                La lista admite paginación.
+
+                Args:
+                    client_id (str): ID del cliente para el cual listar los empleados.
+                    page_size (int): Cantidad de empleados por página (5, 10, 20).
+                    page_token (str | None): Token opcional para la paginación.
+
+                Returns:
+                    tuple[list[Employee], str | None]: Lista de empleados y token de la siguiente página (si existe).
+                """
+        client_ref = self.db.collection('clients').document(client_id)
+        query: Query = client_ref.collection('employees').order_by('invitation_date', direction=Query.DESCENDING)
+
+        if page_token:
+            query = query.start_after({u'id': page_token})
+
+        query = query.limit(page_size)
+        docs = query.stream()
+
+        employees = []
+        next_page_token = None
+
+        for doc in docs:
+            employees.append(self.doc_to_employee(doc))
+            next_page_token = doc.id  # El último ID de documento será el token para la siguiente página
+
+        return employees, next_page_token
