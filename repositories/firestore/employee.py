@@ -130,15 +130,14 @@ class FirestoreEmployeeRepository(EmployeeRepository):
 
         Returns:
         int: Número total de empleados.
+
         """
         client_ref = self.db.collection('clients').document(client_id)
         employees_ref = client_ref.collection('employees')
-        total_employees = len(list(employees_ref.stream()))
-        return total_employees
 
-    def list_by_client_id(
-        self, client_id: str, page_size: int, page_number: int = 1
-    ) -> tuple[list[Employee], int]:
+        return len(list(employees_ref.stream()))
+
+    def list_by_client_id(self, client_id: str, page_size: int, page_number: int = 1) -> tuple[list[Employee], int]:
         """
         Lista los empleados de un cliente específico, ordenados por fecha de invitación descendente.
 
@@ -151,6 +150,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
 
         Returns:
         tuple[list[Employee], int]: Lista de empleados y el número total de empleados.
+
         """
         client_ref = self.db.collection('clients').document(client_id)
         query: Query = client_ref.collection('employees').order_by('invitation_date', direction=Query.DESCENDING)

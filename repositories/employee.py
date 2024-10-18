@@ -17,7 +17,5 @@ class EmployeeRepository:
     def count_by_client_id(self, client_id: str) -> int:
         raise NotImplementedError  # pragma: no cover
 
-    def list_by_client_id(
-            self, client_id: str, page_size: int, page_number: int = 1
-    ) -> tuple[list[Employee], int]:
+    def list_by_client_id(self, client_id: str, page_size: int, page_number: int = 1) -> tuple[list[Employee], int]:
         raise NotImplementedError  # pragma: no cover

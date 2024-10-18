@@ -1,6 +1,5 @@
 import base64
 import json
-import uuid
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -65,9 +64,7 @@ class TestEmployeeList(ParametrizedTestCase):
             (10, 1, 10, 2),  # Página 1 con tamaño 10, espera 10 empleados y 2 páginas en total
         ],
     )
-    def test_list_employees_pagination(
-        self, page_size: int, page_number: int, expected_count: int, total_pages: int
-    ) -> None:
+    def test_list_employees_pagination(self, page_size: int, page_number: int, expected_count: int, total_pages: int) -> None:
         # Crear empleados de prueba
         employees = [
             Employee(
@@ -147,4 +144,3 @@ class TestEmployeeList(ParametrizedTestCase):
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
         self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid pageNumber. Page number must be 1 or greater.'})
-

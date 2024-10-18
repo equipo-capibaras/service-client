@@ -102,8 +102,7 @@ class EmployeeList(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         # Verificar si el usuario tiene permisos de administrador
         if token['role'] != Role.ADMIN.value:
             return error_response('Forbidden: You do not have access to this resource.', 403)

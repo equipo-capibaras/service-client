@@ -1,6 +1,7 @@
+from datetime import UTC, datetime
+
 from models import Client, Employee, Plan, Role
 from models.employee import InvitationStatus
-from datetime import datetime, timezone
 
 # Universo Móvel
 client_universo = Client(
@@ -54,7 +55,7 @@ employees_globalcom = [
         password='$pbkdf2-sha256$29000$k5JSyvn/nzPmPGfM2Tun1A$fnAMQpvDOQ8r6ZpQfh0IWd5Dz6eTj7NmgpDgeuJBxeM',  # noqa: S106
         role=Role.ADMIN,
         invitation_status=InvitationStatus.ACCEPTED,
-        invitation_date=datetime.now(timezone.utc),
+        invitation_date=datetime.now(UTC),
     ),
     Employee(
         id='1dabcf78-e62a-41fd-b69c-fd7c775b04d4',
@@ -64,7 +65,7 @@ employees_globalcom = [
         password='$pbkdf2-sha256$29000$I6S0dm4tRSjFuBdCqJXy3g$FRrF180nHvi3UV4HVvV48hzuSTdbLDjx/oTvqFZty.8',  # noqa: S106
         role=Role.ANALYST,
         invitation_status=InvitationStatus.ACCEPTED,
-        invitation_date=datetime.now(timezone.utc),
+        invitation_date=datetime.now(UTC),
     ),
     Employee(
         id='b15960ec-e058-4ed7-8721-39925c810583',
@@ -74,7 +75,7 @@ employees_globalcom = [
         password='$pbkdf2-sha256$29000$O6fU.l8LgbDWGsN4T0kJwQ$rJh0O1YIK22vpo34fiSbJcSNIWOzhTWjzywEYpMgGAo',  # noqa: S106
         role=Role.AGENT,
         invitation_status=InvitationStatus.PENDING,
-        invitation_date=datetime.now(timezone.utc),
+        invitation_date=datetime.now(UTC),
     ),
 ]
 

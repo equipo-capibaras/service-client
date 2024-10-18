@@ -347,7 +347,8 @@ class TestEmployee(ParametrizedTestCase):
             employee_dict['role'] = employee.role.value
 
             self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
-                employee_dict)
+                employee_dict
+            )
 
         # Contar empleados nuevamente (debe ser 5)
         count = self.repo.count_by_client_id(client.id)
@@ -396,10 +397,12 @@ class TestEmployee(ParametrizedTestCase):
             # Convertir enums y fecha a valores para Firestore
             employee_dict['invitation_status'] = employee.invitation_status.value
             employee_dict['role'] = employee.role.value
-            employee_dict['invitation_date'] = employee.invitation_date.isoformat()
+            if employee.invitation_date is not None:
+                employee_dict['invitation_date'] = employee.invitation_date.isoformat()
 
             self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
-                employee_dict)
+                employee_dict
+            )
 
         # Listar empleados en la página indicada
         employees_listed, total_employees = self.repo.list_by_client_id(client.id, page_size, page_number)
@@ -407,4 +410,3 @@ class TestEmployee(ParametrizedTestCase):
         # Verificar la cantidad de empleados devuelta y el total
         self.assertEqual(len(employees_listed), expected_count)
         self.assertEqual(total_employees, 12)
-
