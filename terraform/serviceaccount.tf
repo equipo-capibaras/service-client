@@ -39,3 +39,12 @@ data "google_service_account" "user" {
 
   depends_on = [ google_project_service.iam ]
 }
+
+# Retrieves the backup service account.
+# This is defined as part of the core infrastructure and is shared across all microservices.
+# This service account is used by the Cloud Scheduler to do database backups.
+data "google_service_account" "backup" {
+  account_id   = "backup"
+
+  depends_on = [ google_project_service.iam ]
+}
