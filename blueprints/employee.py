@@ -95,3 +95,35 @@ class EmployeeRegister(MethodView):
             return error_response('Email already registered', 409)
 
         return json_response(employee_to_dict(employee), 201)
+
+
+@class_route(blp, '/api/v1/employees')
+class EmployeeList(MethodView):
+    init_every_request = False
+
+    @requires_token
+    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+        # Verificar si el usuario tiene permisos de administrador
+        if token['role'] != Role.ADMIN.value:
+            return error_response('Forbidden: You do not have access to this resource.', 403)
+
+        client_id = token['cid']
+
+        # Parámetros de paginación opcionales
+        page_size = request.args.get('pageSize', default=5, type=int)
+        page_token = request.args.get('pageToken', default=None, type=str)
+
+        # Validar el valor de page_size
+        if page_size not in [5, 10, 20]:
+            return error_response('Invalid pageSize. Allowed values are 5, 10, 20.', 400)
+
+        # Obtener empleados usando el repositorio
+        employees, next_page_token = employee_repo.list_by_client_id(client_id, page_size, page_token)
+
+        # Crear la respuesta con los empleados y el token de la siguiente página (si existe)
+        response_data = {
+            'employees': [employee_to_dict(employee) for employee in employees],
+            'nextPageToken': next_page_token,
+        }
+
+        return json_response(response_data, 200)
