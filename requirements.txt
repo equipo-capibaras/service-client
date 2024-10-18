@@ -6,7 +6,7 @@ Flask==3.0.3
 gcp-microservice-utils==0.4.0
 google-cloud-firestore==2.19.0
 gunicorn==23.0.0
-marshmallow==3.22.0
+marshmallow==3.23.0
 marshmallow_dataclass==8.7.1
 mypy==1.12.0
 passlib==1.7.4
