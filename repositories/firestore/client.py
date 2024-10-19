@@ -83,6 +83,12 @@ class FirestoreClientRepository(ClientRepository):
 
         return self.doc_to_client(client_doc)
 
+    def update(self, client: Client) -> None:
+        client_dict = asdict(client)
+        del client_dict['id']
+
+        self.db.collection('clients').document(client.id).set(client_dict)
+
     def get_all(self) -> Generator[Client, None, None]:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection('clients').order_by('name').stream()
         for doc in stream:

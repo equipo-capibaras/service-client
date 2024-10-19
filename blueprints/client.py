@@ -10,7 +10,7 @@ from flask.views import MethodView
 from marshmallow import ValidationError
 
 from containers import Container
-from models import Client, Role
+from models import Client, Plan, Role
 from repositories import ClientRepository
 from repositories.errors import DuplicateEmailError
 
@@ -101,6 +101,33 @@ class ClientInfo(MethodView):
         is_admin: bool = token['role'] == Role.ADMIN.value
 
         return json_response(client_to_dict(client, include_plan=is_admin), 200)
+
+
+@class_route(blp, '/api/v1/clients/me/plan/<plan>')
+class SelectPlan(MethodView):
+    init_every_request = False
+
+    @requires_token
+    def post(
+        self, plan: str, token: dict[str, Any], client_repo: ClientRepository = Provide[Container.client_repo]
+    ) -> Response:
+        if token['aud'] != Role.ADMIN:
+            return error_response('You do not have access to this resource.', 403)
+
+        try:
+            plan = Plan(plan)
+        except ValueError:
+            return error_response('Invalid plan.', 400)
+
+        client = client_repo.get(token['cid'])
+
+        if client is None:
+            return error_response('Client not found.', 404)
+
+        client.plan = plan
+        client_repo.update(client)
+
+        return json_response(client_to_dict(client, include_plan=True), 200)
 
 
 @class_route(blp, '/api/v1/clients/<client_id>')

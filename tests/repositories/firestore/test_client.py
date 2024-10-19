@@ -178,3 +178,15 @@ class TestClient(ParametrizedTestCase):
             doc = self.client.collection('clients').document(client.id).get()
 
             self.assertFalse(doc.exists)
+
+    def test_update(self) -> None:
+        client = self.add_random_clients(1)[0]
+
+        client.plan = self.faker.random_element(list(Plan))
+        self.repo.update(client)
+
+        doc = self.client.collection('clients').document(client.id).get()
+        self.assertTrue(doc.exists)
+        client_dict = asdict(client)
+        del client_dict['id']
+        self.assertEqual(doc.to_dict(), client_dict)
