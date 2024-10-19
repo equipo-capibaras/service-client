@@ -9,7 +9,8 @@ import dacite
 from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 from google.cloud.firestore import transactional
-from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Transaction
+from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Query, Transaction
+from google.cloud.firestore_v1.base_aggregation import AggregationResult
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
@@ -51,6 +52,20 @@ class FirestoreEmployeeRepository(EmployeeRepository):
 
         return self.doc_to_employee(doc)
 
+    def get_all(self, client_id: str, offset: int | None, limit: int | None) -> Generator[Employee, None, None]:
+        employees_ref = cast(CollectionReference, self.db.collection('clients').document(client_id).collection('employees'))
+        query = employees_ref.order_by('invitation_date', direction=Query.DESCENDING)
+
+        if offset is not None:
+            query = query.offset(offset)
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        docs = query.stream()
+        for doc in docs:
+            yield self.doc_to_employee(doc)
+
     def _find_by_email(self, email: str, transaction: Transaction | None = None) -> DocumentSnapshot | None:
         docs = (
             self.db.collection_group('employees').where(filter=FieldFilter('email', '==', email)).get(transaction=transaction)  # type: ignore[no-untyped-call]
@@ -88,11 +103,11 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         employee_ref = cast(CollectionReference, client_ref.collection('employees')).document(employee.id)
 
         @transactional  # type: ignore[misc]
-        def create_employee_transaction(transaction: Transaction, employee_dict: dict[str, Any]) -> None:
-            if self._find_by_email(employee_dict['email'], transaction) is not None:
-                raise DuplicateEmailError(employee_dict['email'])
+        def create_employee_transaction(transaction: Transaction, employee_dict_trans: dict[str, Any]) -> None:
+            if self._find_by_email(employee_dict_trans['email'], transaction) is not None:
+                raise DuplicateEmailError(employee_dict_trans['email'])
 
-            transaction.create(employee_ref, employee_dict)
+            transaction.create(employee_ref, employee_dict_trans)
 
         create_employee_transaction(self.db.transaction(), employee_dict)
 
@@ -100,3 +115,9 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection_group('employees').stream()
         for e in stream:
             cast(DocumentReference, e.reference).delete()
+
+    def count(self, client_id: str) -> int:
+        client_ref = self.db.collection('clients').document(client_id)
+        employees_ref = cast(CollectionReference, client_ref.collection('employees'))
+        result = cast(AggregationResult, employees_ref.count().get()[0][0])  # type: ignore[no-untyped-call]
+        return int(result.value)

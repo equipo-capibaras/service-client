@@ -31,7 +31,7 @@ class TestEmployeeRegister(ParametrizedTestCase):
                 'name': self.faker.name(),
                 'email': self.faker.email(),
                 'password': self.faker.password(length=12),
-                'role': self.faker.random_element([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value]),
+                'role': self.faker.random_element(list(Role)),
             }
             resp = self.call_register_api(payload)
 
@@ -52,7 +52,7 @@ class TestEmployeeRegister(ParametrizedTestCase):
                 'name': self.faker.name(),
                 'email': self.faker.email(),
                 'password': self.faker.password(length=12),
-                'role': self.faker.random_element([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value]),
+                'role': self.faker.random_element(list(Role)),
             }
             resp = self.call_register_api(payload)
 

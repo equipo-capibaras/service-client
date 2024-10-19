@@ -1,5 +1,6 @@
 import os
 from dataclasses import asdict
+from datetime import UTC
 from typing import cast
 from unittest import skipUnless
 
@@ -10,7 +11,7 @@ from google.cloud.firestore_v1 import DocumentReference
 from passlib.hash import pbkdf2_sha256
 from unittest_parametrize import ParametrizedTestCase, parametrize
 
-from models import Client, Employee, Plan, Role
+from models import Client, Employee, InvitationStatus, Plan, Role
 from repositories import DuplicateEmailError
 from repositories.firestore import UUID_UNASSIGNED, FirestoreEmployeeRepository
 
@@ -65,11 +66,14 @@ class TestEmployee(ParametrizedTestCase):
                 email=self.emails[email_idx_map[idx]],
                 password=pbkdf2_sha256.hash(self.faker.password()),
                 role=self.faker.random_element(list(Role)),
+                invitation_status=self.faker.random_element(list(InvitationStatus)),
+                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
             )
             employees.append(employee)
             employee_dict = asdict(employee)
             del employee_dict['id']
             del employee_dict['client_id']
+
             client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
             self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(
                 employee_dict
@@ -112,10 +116,13 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=self.faker.random_element(list(InvitationStatus)),
+            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
         employee_dict = asdict(employee)
         del employee_dict['id']
         del employee_dict['client_id']
+
         client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
         self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(employee_dict)
 
@@ -156,6 +163,8 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=self.faker.random_element(list(InvitationStatus)),
+            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
         self.repo.create(employee)
@@ -185,10 +194,13 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=self.faker.random_element(list(InvitationStatus)),
+            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
         employee_dict = asdict(employee1)
         del employee_dict['id']
         del employee_dict['client_id']
+
         self.client.collection('clients').document(client_id).collection('employees').document(employee1.id).set(employee_dict)
 
         employee2 = Employee(
@@ -198,6 +210,8 @@ class TestEmployee(ParametrizedTestCase):
             email=employee1.email,
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=self.faker.random_element(list(InvitationStatus)),
+            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
         with self.assertRaises(DuplicateEmailError) as context:
@@ -236,11 +250,14 @@ class TestEmployee(ParametrizedTestCase):
                     email=self.faker.unique.email(),
                     password=pbkdf2_sha256.hash(self.faker.password()),
                     role=self.faker.random_element(list(Role)),
+                    invitation_status=self.faker.random_element(list(InvitationStatus)),
+                    invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
                 )
                 employees.append(employee)
                 employee_dict = asdict(employee)
                 del employee_dict['id']
                 del employee_dict['client_id']
+
                 self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
                     employee_dict
                 )
@@ -256,3 +273,123 @@ class TestEmployee(ParametrizedTestCase):
             doc = employee_ref.get()
 
             self.assertFalse(doc.exists)
+
+    def test_count(self) -> None:
+        number_of_employees = self.faker.random_int(min=5, max=15)
+
+        client = Client(
+            id=cast(str, self.faker.uuid4()),
+            name=self.faker.company(),
+            plan=self.faker.random_element(list(Plan)),
+            email_incidents=self.faker.unique.email(),
+        )
+
+        client_dict = asdict(client)
+        del client_dict['id']
+        self.client.collection('clients').document(client.id).set(client_dict)
+
+        for _ in range(number_of_employees):
+            employee = Employee(
+                id=cast(str, self.faker.uuid4()),
+                client_id=client.id,
+                name=self.faker.name(),
+                email=self.faker.unique.email(),
+                password=pbkdf2_sha256.hash(self.faker.password()),
+                role=self.faker.random_element(list(Role)),
+                invitation_status=self.faker.random_element(list(InvitationStatus)),
+                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
+            )
+            employee_dict = asdict(employee)
+            del employee_dict['id']
+            del employee_dict['client_id']
+
+            self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
+                employee_dict
+            )
+
+        count = self.repo.count(client.id)
+
+        self.assertEqual(count, number_of_employees)
+
+    def test_count_invalid(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        count = self.repo.count(client_id)
+
+        self.assertEqual(count, 0)
+
+    @parametrize(
+        ('offset', 'limit'),
+        [
+            (False, False),  # No offset and limit
+            (True, False),  # Offset but no limit
+            (False, True),  # Limit but no offset
+            (True, True),  # Offset and limit
+        ],
+    )
+    def test_get_all(self, *, offset: bool, limit: bool) -> None:
+        number_of_employees = self.faker.random_int(min=10, max=20)
+        random_offset = self.faker.random_int(min=2, max=6)
+        random_limit = self.faker.random_int(min=2, max=6)
+
+        client = Client(
+            id=cast(str, self.faker.uuid4()),
+            name=self.faker.company(),
+            plan=self.faker.random_element(list(Plan)),
+            email_incidents=self.faker.unique.email(),
+        )
+
+        client_dict = asdict(client)
+        del client_dict['id']
+        self.client.collection('clients').document(client.id).set(client_dict)
+
+        employees: list[Employee] = []
+        for _ in range(number_of_employees):
+            employee = Employee(
+                id=cast(str, self.faker.uuid4()),
+                client_id=client.id,
+                name=self.faker.name(),
+                email=self.faker.unique.email(),
+                password=pbkdf2_sha256.hash(self.faker.password()),
+                role=self.faker.random_element(list(Role)),
+                invitation_status=self.faker.random_element(list(InvitationStatus)),
+                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
+            )
+            employees.append(employee)
+            employee_dict = asdict(employee)
+            del employee_dict['id']
+            del employee_dict['client_id']
+
+            self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
+                employee_dict
+            )
+
+        employees_db = list(
+            self.repo.get_all(
+                client.id,
+                offset=random_offset if offset else None,
+                limit=random_limit if limit else None,
+            )
+        )
+
+        employees.sort(key=lambda x: x.invitation_date, reverse=True)
+        if offset:
+            employees = employees[random_offset:]
+        if limit:
+            employees = employees[:random_limit]
+
+        self.assertEqual(employees_db, employees)
+
+    @parametrize(
+        ('offset', 'limit'),
+        [
+            (None, None),
+            (5, None),
+            (None, 5),
+            (5, 5),
+        ],
+    )
+    def test_get_all_invalid(self, offset: int | None, limit: int | None) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        employees = list(self.repo.get_all(client_id, offset=offset, limit=limit))
+
+        self.assertEqual(employees, [])
