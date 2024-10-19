@@ -11,7 +11,7 @@ from marshmallow import ValidationError
 
 from containers import Container
 from models import Client, Plan, Role
-from repositories import ClientRepository
+from repositories import ClientRepository, EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
 from .util import class_route, error_response, is_valid_uuid4, json_response, requires_token, validation_error_response
@@ -59,7 +59,13 @@ class RegisterClientBody:
 class CreateClient(MethodView):
     init_every_request = False
 
-    def post(self, client_repo: ClientRepository = Provide[Container.client_repo]) -> Response:
+    @requires_token
+    def post(
+        self,
+        token: dict[str, Any],
+        client_repo: ClientRepository = Provide[Container.client_repo],
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+    ) -> Response:
         client_schema = marshmallow_dataclass.class_schema(RegisterClientBody)()
         req_json = request.get_json(silent=True)
 
@@ -83,6 +89,8 @@ class CreateClient(MethodView):
             client_repo.create(client)
         except DuplicateEmailError:
             return error_response('Email already registered.', 409)
+
+        # TODO: Move admin to new client
 
         return json_response(client_to_dict(client, include_plan=True), 201)
 

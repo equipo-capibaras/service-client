@@ -22,12 +22,12 @@ class TestClient(ParametrizedTestCase):
         self.app = create_app()
         self.client = self.app.test_client()
 
-    def gen_token(self, client_id: str, role: Role) -> dict[str, str]:
+    def gen_token(self, *, client_id: str, role: Role, assigned: bool = True) -> dict[str, str]:
         return {
             'sub': cast(str, self.faker.uuid4()),
             'cid': client_id,
             'role': role.value,
-            'aud': role.value,
+            'aud': ('' if assigned else 'unassigned_') + role.value,
         }
 
     def call_info_api(self, token: dict[str, str] | None) -> TestResponse:
@@ -37,11 +37,13 @@ class TestClient(ParametrizedTestCase):
         token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
         return self.client.get(self.INFO_API_URL, headers={'X-Apigateway-Api-Userinfo': token_encoded})
 
-    def call_register_api(self, body: dict[str, Any] | str) -> TestResponse:
+    def call_register_api(self, body: dict[str, Any] | str, token: dict[str, str]) -> TestResponse:
+        token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
         return self.client.post(
             '/api/v1/clients',
             data=body if isinstance(body, str) else json.dumps(body),
             content_type='application/json',
+            headers={'X-Apigateway-Api-Userinfo': token_encoded},
         )
 
     def call_select_plan_api(self, plan: str, token: dict[str, str]) -> TestResponse:
@@ -199,9 +201,10 @@ class TestClient(ParametrizedTestCase):
         return register_data
 
     def test_register_invalid_json(self) -> None:
+        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         client_repo_mock = Mock(ClientRepository)
         with self.app.container.client_repo.override(client_repo_mock):
-            resp = self.call_register_api('invalid json')
+            resp = self.call_register_api('invalid json', token=token)
 
         cast(Mock, client_repo_mock.create).assert_not_called()
 
@@ -219,6 +222,7 @@ class TestClient(ParametrizedTestCase):
         ],
     )
     def test_register_missing_field(self, field: str) -> None:
+        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         register_data = {
             'name': self.faker.name(),
             'prefixEmailIncidents': self.faker.email().split('@')[0],
@@ -228,7 +232,7 @@ class TestClient(ParametrizedTestCase):
 
         client_repo_mock = Mock(ClientRepository)
         with self.app.container.client_repo.override(client_repo_mock):
-            resp = self.call_register_api(register_data)
+            resp = self.call_register_api(register_data, token=token)
 
         cast(Mock, client_repo_mock.create).assert_not_called()
 
@@ -248,11 +252,12 @@ class TestClient(ParametrizedTestCase):
         ],
     )
     def test_register_bounds_fail(self, field: str, length: int) -> None:
+        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         register_data = self.gen_register_data_with_bounds(field, length)
 
         client_repo_mock = Mock(ClientRepository)
         with self.app.container.client_repo.override(client_repo_mock):
-            resp = self.call_register_api(register_data)
+            resp = self.call_register_api(register_data, token=token)
 
         cast(Mock, client_repo_mock.create).assert_not_called()
 
@@ -272,11 +277,12 @@ class TestClient(ParametrizedTestCase):
         ],
     )
     def test_register_bounds_valid(self, field: str, length: int) -> None:
+        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         register_data = self.gen_register_data_with_bounds(field, length)
 
         client_repo_mock = Mock(ClientRepository)
         with self.app.container.client_repo.override(client_repo_mock):
-            resp = self.call_register_api(register_data)
+            resp = self.call_register_api(register_data, token=token)
 
         cast(Mock, client_repo_mock.create).assert_called_once()
         repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
@@ -291,6 +297,7 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['emailIncidents'], repo_client.email_incidents)
 
     def test_register_duplicate_email(self) -> None:
+        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         register_data = {
             'name': self.faker.name(),
             'prefixEmailIncidents': self.faker.email().split('@')[0],
@@ -301,7 +308,7 @@ class TestClient(ParametrizedTestCase):
             register_data['prefixEmailIncidents'] + '@capibaras.io'
         )
         with self.app.container.client_repo.override(client_repo_mock):
-            resp = self.call_register_api(register_data)
+            resp = self.call_register_api(register_data, token=token)
 
         cast(Mock, client_repo_mock.create).assert_called_once()
         repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
