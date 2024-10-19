@@ -15,6 +15,7 @@ from repositories.errors import DuplicateEmailError
 
 class TestClient(ParametrizedTestCase):
     INFO_API_URL = '/api/v1/clients/me'
+    PLAN_API_URL = '/api/v1/clients/me/plan'
 
     def setUp(self) -> None:
         self.faker = Faker()
@@ -42,6 +43,10 @@ class TestClient(ParametrizedTestCase):
             data=body if isinstance(body, str) else json.dumps(body),
             content_type='application/json',
         )
+
+    def call_select_plan_api(self, plan: str, token: dict[str, str]) -> TestResponse:
+        token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
+        return self.client.post(f'{self.PLAN_API_URL}/{plan}', headers={'X-Apigateway-Api-Userinfo': token_encoded})
 
     def test_info_no_token(self) -> None:
         resp = self.call_info_api(None)
@@ -308,3 +313,72 @@ class TestClient(ParametrizedTestCase):
 
         self.assertEqual(resp_data['code'], 409)
         self.assertEqual(resp_data['message'], 'Email already registered.')
+
+    def test_select_plan(self) -> None:
+        new_plan: Plan = self.faker.random_element(list(Plan))
+
+        client = Client(
+            id=cast(str, self.faker.uuid4()),
+            name=self.faker.company(),
+            plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
+            email_incidents=self.faker.unique.email(),
+        )
+
+        client_repo_mock = Mock(ClientRepository)
+        cast(Mock, client_repo_mock.get).return_value = client
+
+        token = self.gen_token(client_id=client.id, role=Role.ADMIN)
+
+        with self.app.container.client_repo.override(client_repo_mock):
+            resp = self.call_select_plan_api(plan=new_plan, token=token)
+
+        client.plan = new_plan
+
+        cast(Mock, client_repo_mock.get).assert_called_once_with(client.id)
+        cast(Mock, client_repo_mock.update).assert_called_once_with(client)
+
+        self.assertEqual(resp.status_code, 200)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['plan'], new_plan)
+
+    def test_select_plan_invalid_plan(self) -> None:
+        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN)
+
+        resp = self.call_select_plan_api(plan=self.faker.pystr(), token=token)
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 400)
+        self.assertEqual(resp_data['message'], 'Invalid plan.')
+
+    def test_select_plan_not_admin(self) -> None:
+        token = self.gen_token(
+            client_id=cast(str, self.faker.uuid4()), role=self.faker.random_element([Role.ANALYST, Role.AGENT])
+        )
+
+        resp = self.call_select_plan_api(plan=self.faker.random_element(list(Plan)), token=token)
+
+        self.assertEqual(resp.status_code, 403)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 403)
+        self.assertEqual(resp_data['message'], 'You do not have access to this resource.')
+
+    def test_select_plan_client_not_found(self) -> None:
+        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN)
+
+        client_repo_mock = Mock(ClientRepository)
+        cast(Mock, client_repo_mock.get).return_value = None
+
+        with self.app.container.client_repo.override(client_repo_mock):
+            resp = self.call_select_plan_api(plan=self.faker.random_element(list(Plan)), token=token)
+
+        cast(Mock, client_repo_mock.get).assert_called_once()
+
+        self.assertEqual(resp.status_code, 404)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 404)
+        self.assertEqual(resp_data['message'], 'Client not found.')
