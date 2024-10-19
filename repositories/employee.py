@@ -1,8 +1,13 @@
+from collections.abc import Generator
+
 from models import Employee
 
 
 class EmployeeRepository:
     def get(self, employee_id: str, client_id: str) -> Employee | None:
+        raise NotImplementedError  # pragma: no cover
+
+    def get_all(self, client_id: str, offset: int | None, limit: int | None) -> Generator[Employee, None, None]:
         raise NotImplementedError  # pragma: no cover
 
     def find_by_email(self, email: str) -> Employee | None:
@@ -14,8 +19,5 @@ class EmployeeRepository:
     def delete_all(self) -> None:
         raise NotImplementedError  # pragma: no cover
 
-    def count_by_client_id(self, client_id: str) -> int:
-        raise NotImplementedError  # pragma: no cover
-
-    def list_by_client_id(self, client_id: str, page_size: int, page_number: int = 1) -> tuple[list[Employee], int]:
+    def count(self, client_id: str) -> int:
         raise NotImplementedError  # pragma: no cover

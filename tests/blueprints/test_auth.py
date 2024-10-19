@@ -1,4 +1,5 @@
 import json
+from datetime import UTC
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -11,7 +12,7 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 from werkzeug.test import TestResponse
 
 from app import create_app
-from models import Employee, Role
+from models import Employee, InvitationStatus, Role
 from repositories import EmployeeRepository
 
 
@@ -110,6 +111,11 @@ class TestAuth(ParametrizedTestCase):
     )
     def test_login_valid_credentials(self, *, assigned: bool) -> None:
         password = self.faker.password()
+        invitation_status = (
+            self.faker.random_element([InvitationStatus.ACCEPTED, InvitationStatus.UNINVITED])
+            if assigned
+            else InvitationStatus.UNINVITED
+        )
 
         employee = Employee(
             id=cast(str, self.faker.uuid4()),
@@ -118,6 +124,8 @@ class TestAuth(ParametrizedTestCase):
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(password),
             role=self.faker.random_element(list(Role)),
+            invitation_status=invitation_status,
+            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
         login_data = {

@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 import marshmallow.validate
@@ -11,8 +12,7 @@ from marshmallow import ValidationError
 from passlib.handlers.pbkdf2 import pbkdf2_sha256
 
 from containers import Container
-from models import Employee, Role
-from models.employee import InvitationStatus
+from models import Employee, InvitationStatus, Role
 from repositories import EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
@@ -29,7 +29,7 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
         'email': employee.email,
         'role': employee.role.value,
         'invitationStatus': employee.invitation_status.value,
-        'invitationDate': employee.invitation_date.isoformat() if employee.invitation_date else None,
+        'invitationDate': employee.invitation_date.isoformat(),
     }
 
 
@@ -85,7 +85,7 @@ class EmployeeRegister(MethodView):
             password=pbkdf2_sha256.hash(data.password),
             role=Role(data.role),
             invitation_status=InvitationStatus.UNINVITED,
-            invitation_date=None,
+            invitation_date=datetime.now(UTC).replace(microsecond=0),
         )
 
         # Save employee
@@ -122,11 +122,15 @@ class EmployeeList(MethodView):
         if page_number < 1:
             return error_response('Invalid page_number. Page number must be 1 or greater.', 400)
 
-        # Retrieve employees and the total number of employees using the repository
-        employees, total_employees = employee_repo.list_by_client_id(client_id, page_size, page_number)
-
-        # Calculate the total number of pages
+        total_employees = employee_repo.count(client_id)
         total_pages = (total_employees + page_size - 1) // page_size
+
+        # Retrieve employees and the total number of employees using the repository
+        employees = employee_repo.get_all(
+            client_id,
+            offset=(page_number - 1) * page_size,
+            limit=page_size,
+        )
 
         # Create the response with employees and pagination information
         response_data = {

@@ -1,5 +1,6 @@
 import base64
 import json
+from datetime import UTC
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -9,7 +10,7 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 from werkzeug.test import TestResponse
 
 from app import create_app
-from models import Employee, Role
+from models import Employee, InvitationStatus, Role
 from repositories import EmployeeRepository
 
 
@@ -62,6 +63,12 @@ class TestEmployee(ParametrizedTestCase):
         ],
     )
     def test_info_employee_found(self, *, assigned: bool) -> None:
+        invitation_status = (
+            self.faker.random_element([InvitationStatus.ACCEPTED, InvitationStatus.UNINVITED])
+            if assigned
+            else InvitationStatus.UNINVITED
+        )
+
         employee = Employee(
             id=cast(str, self.faker.uuid4()),
             client_id=cast(str, self.faker.uuid4()) if assigned else None,
@@ -69,6 +76,8 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
+            invitation_status=invitation_status,
+            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
         token = self.gen_token(

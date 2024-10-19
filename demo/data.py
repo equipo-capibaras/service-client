@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
-from models import Client, Employee, Plan, Role
-from models.employee import InvitationStatus
+from models import Client, Employee, InvitationStatus, Plan, Role
 
 # Universo Móvel
 client_universo = Client(
@@ -19,6 +18,8 @@ employees_universo = [
         email='bernardo.abreu@universo.br',
         password='$pbkdf2-sha256$29000$qpWylrI2BqD03rtXam3tvQ$avheO0yxd1O56eB0KSx6ynDjkljJrc46tcHf24iWsoc',  # noqa: S106
         role=Role.ADMIN,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 10, 17, 56, 55, tzinfo=UTC),
     ),
     Employee(
         id='906ee75c-2bfd-4478-8f8e-da8b7fede94d',
@@ -27,6 +28,8 @@ employees_universo = [
         email='maria.silva@universo.br',
         password='$pbkdf2-sha256$29000$9f6fU0rpPYcQopRybq1VSg$MPkE3PyeoRa.iDh5FPS/5DAqFUqpS/B8iWnjmnFOa6A',  # noqa: S106
         role=Role.ANALYST,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 12, 14, 26, 22, tzinfo=UTC),
     ),
     Employee(
         id='7ecbab00-726e-4c21-b7ea-17fa2ace7b1d',
@@ -35,6 +38,8 @@ employees_universo = [
         email='joao.santos@universo.br',
         password='$pbkdf2-sha256$29000$co6Rsrb2vncupfT.39v7/w$fnenIA46DpG7.BJ.CqmqQ7MB1try3Pu91b1dQrKZZlo',  # noqa: S106
         role=Role.AGENT,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 13, 15, 11, 12, tzinfo=UTC),
     ),
 ]
 
@@ -55,7 +60,7 @@ employees_globalcom = [
         password='$pbkdf2-sha256$29000$k5JSyvn/nzPmPGfM2Tun1A$fnAMQpvDOQ8r6ZpQfh0IWd5Dz6eTj7NmgpDgeuJBxeM',  # noqa: S106
         role=Role.ADMIN,
         invitation_status=InvitationStatus.ACCEPTED,
-        invitation_date=datetime.now(UTC),
+        invitation_date=datetime(2024, 10, 11, 15, 11, 12, tzinfo=UTC),
     ),
     Employee(
         id='1dabcf78-e62a-41fd-b69c-fd7c775b04d4',
@@ -65,7 +70,7 @@ employees_globalcom = [
         password='$pbkdf2-sha256$29000$I6S0dm4tRSjFuBdCqJXy3g$FRrF180nHvi3UV4HVvV48hzuSTdbLDjx/oTvqFZty.8',  # noqa: S106
         role=Role.ANALYST,
         invitation_status=InvitationStatus.ACCEPTED,
-        invitation_date=datetime.now(UTC),
+        invitation_date=datetime(2024, 10, 12, 16, 32, 48, tzinfo=UTC),
     ),
     Employee(
         id='b15960ec-e058-4ed7-8721-39925c810583',
@@ -74,8 +79,8 @@ employees_globalcom = [
         email='luciana@globalcom.ec',
         password='$pbkdf2-sha256$29000$O6fU.l8LgbDWGsN4T0kJwQ$rJh0O1YIK22vpo34fiSbJcSNIWOzhTWjzywEYpMgGAo',  # noqa: S106
         role=Role.AGENT,
-        invitation_status=InvitationStatus.PENDING,
-        invitation_date=datetime.now(UTC),
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 12, 11, 45, 37, tzinfo=UTC),
     ),
 ]
 
@@ -95,6 +100,8 @@ employees_gigatel = [
         email='cielo.guerrero.rivera@gigatel.co',
         password='$pbkdf2-sha256$29000$5vwfw9g7x1jrXQthLMUYww$nonWNNpQ.656o2KHv.zPZcl7ILX.gsKtGPLkazWj9u4',  # noqa: S106
         role=Role.ADMIN,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 15, 11, 45, 15, tzinfo=UTC),
     ),
     Employee(
         id='e7ae844f-ae95-4d04-8d45-0a155ce58bcc',
@@ -103,6 +110,8 @@ employees_gigatel = [
         email='miguel.diaz.flores@gigatel.co',
         password='$pbkdf2-sha256$29000$a02J0boXYqyVsnaOcW6t1Q$fsd6x5xNR1vZHOKT1utssQ6RTmo0EPlm9OsEXC55mCo',  # noqa: S106
         role=Role.ANALYST,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 16, 11, 27, 39, tzinfo=UTC),
     ),
     Employee(
         id='0abad006-921c-4e09-b2a6-10713b71571f',
@@ -111,6 +120,8 @@ employees_gigatel = [
         email='julian.cordoba.rincon@gigatel.co',
         password='$pbkdf2-sha256$29000$/L93bo3R.h.DUOq917p3Dg$OJ6VIcC5j7s8ITKP6Kk4n2k2leXGU/5OA3gj6sX8y/Y',  # noqa: S106
         role=Role.AGENT,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 16, 22, 45, 37, tzinfo=UTC),
     ),
 ]
 
@@ -123,6 +134,8 @@ employees_unassigned = [
         email='sofia@gigatel.co',
         password='$pbkdf2-sha256$29000$LQWA0FqLsTbm3JtTas1Zyw$aakebPeV.Ex.El4ZTaAMeopJ8ArQPZgB1uKb8hunVig',  # noqa: S106
         role=Role.ANALYST,
+        invitation_status=InvitationStatus.UNINVITED,
+        invitation_date=datetime(2024, 10, 9, 8, 25, 51, tzinfo=UTC),
     ),
     Employee(
         id='0abad006-921c-4e09-b2a6-10713b71571f',
@@ -131,6 +144,8 @@ employees_unassigned = [
         email='lucia@globalcom.ec',
         password='$pbkdf2-sha256$29000$U.q917r3ntNaK2VMibE2Bg$gZOEg.vzYmKUf0n3hNxUSUBCdpUwxv6OHGqnTuzWyHw',  # noqa: S106
         role=Role.AGENT,
+        invitation_status=InvitationStatus.UNINVITED,
+        invitation_date=datetime(2024, 10, 10, 5, 47, 23, tzinfo=UTC),
     ),
 ]
 

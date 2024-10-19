@@ -1,5 +1,6 @@
 import base64
 import json
+from datetime import UTC
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -9,8 +10,7 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 from werkzeug.test import TestResponse
 
 from app import create_app
-from models import Employee, Role
-from models.employee import InvitationStatus
+from models import Employee, InvitationStatus, Role
 from repositories import EmployeeRepository
 
 
@@ -62,34 +62,39 @@ class TestEmployeeList(ParametrizedTestCase):
             (5, 1, 5, 3),  # Página 1 con tamaño 5, espera 5 empleados y 3 páginas en total
             (5, 3, 2, 3),  # Página 3 con tamaño 5, espera 2 empleados y 3 páginas en total
             (10, 1, 10, 2),  # Página 1 con tamaño 10, espera 10 empleados y 2 páginas en total
+            (5, 4, 0, 3),  # Página 4 con tamaño 5, espera 0 empleados y 3 páginas en total
         ],
     )
     def test_list_employees_pagination(self, page_size: int, page_number: int, expected_count: int, total_pages: int) -> None:
+        client_id = cast(str, self.faker.uuid4())
+
         # Crear empleados de prueba
         employees = [
             Employee(
                 id=cast(str, self.faker.uuid4()),
-                client_id=cast(str, self.faker.uuid4()),
+                client_id=client_id,
                 name=self.faker.name(),
                 email=self.faker.email(),
                 password=pbkdf2_sha256.hash(self.faker.password()),
                 role=self.faker.random_element(list(Role)),
-                invitation_status=InvitationStatus.UNINVITED,
-                invitation_date=self.faker.date_time_this_year(tzinfo=None),
+                invitation_status=self.faker.random_element([InvitationStatus.ACCEPTED, InvitationStatus.PENDING]),
+                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
             )
             for _ in range(12)
         ]
+        employees.sort(key=lambda e: e.invitation_date, reverse=True)
 
         # Generar token de administrador
         token = self.gen_token(
-            client_id=employees[0].client_id,
+            client_id=client_id,
             role=Role.ADMIN,
             assigned=True,
         )
 
         employee_repo_mock = Mock(EmployeeRepository)
 
-        cast(Mock, employee_repo_mock.list_by_client_id).return_value = (employees[:expected_count], len(employees))
+        cast(Mock, employee_repo_mock.count).return_value = len(employees)
+        cast(Mock, employee_repo_mock.get_all).return_value = (e for e in employees[:expected_count])
 
         with self.app.container.employee_repo.override(employee_repo_mock):
             params = {'page_size': page_size, 'page_number': page_number}
@@ -133,8 +138,8 @@ class TestEmployeeList(ParametrizedTestCase):
 
         employee_repo_mock = Mock(EmployeeRepository)
 
-        # Mockear la respuesta del repositorio (no es necesario para esta prueba, pero se incluye para consistencia)
-        employee_repo_mock.list_by_client_id.return_value = ([], 0)
+        cast(Mock, employee_repo_mock.count).return_value = 0
+        cast(Mock, employee_repo_mock.get_all).return_value = (e for e in list[Employee]())
 
         # Llamar al endpoint con el token simulado y con un page_number inválido
         with self.app.container.employee_repo.override(employee_repo_mock):

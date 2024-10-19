@@ -2,7 +2,6 @@ import contextlib
 import logging
 from collections.abc import Generator
 from dataclasses import asdict
-from datetime import datetime
 from enum import Enum
 from typing import Any, cast
 
@@ -11,10 +10,10 @@ from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 from google.cloud.firestore import transactional
 from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Query, Transaction
+from google.cloud.firestore_v1.base_aggregation import AggregationResult
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from models import Employee
-from models.employee import InvitationStatus
 from repositories import DuplicateEmailError, EmployeeRepository
 
 from .constants import UUID_UNASSIGNED
@@ -30,25 +29,12 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         if client_id == UUID_UNASSIGNED:
             client_id = None
 
-        # Obtiene invitation_status del documento y maneja el valor predeterminado si no está presente
-        invitation_status_str = doc.get('invitation_status')
-        if invitation_status_str is None:
-            invitation_status = InvitationStatus.UNINVITED
-        else:
-            invitation_status = InvitationStatus(invitation_status_str)
-
-        # Obtiene invitation_date y convierte al formato datetime si existe
-        invitation_date_str = doc.get('invitation_date')
-        invitation_date = datetime.fromisoformat(invitation_date_str) if invitation_date_str else None
-
         return dacite.from_dict(
             data_class=Employee,
             data={
                 **cast(dict[str, Any], doc.to_dict()),
                 'id': doc.id,
                 'client_id': client_id,
-                'invitation_status': invitation_status,
-                'invitation_date': invitation_date,
             },
             config=dacite.Config(cast=[Enum]),
         )
@@ -65,6 +51,20 @@ class FirestoreEmployeeRepository(EmployeeRepository):
             return None
 
         return self.doc_to_employee(doc)
+
+    def get_all(self, client_id: str, offset: int | None, limit: int | None) -> Generator[Employee, None, None]:
+        employees_ref = cast(CollectionReference, self.db.collection('clients').document(client_id).collection('employees'))
+        query = employees_ref.order_by('invitation_date', direction=Query.DESCENDING)
+
+        if offset is not None:
+            query = query.offset(offset)
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        docs = query.stream()
+        for doc in docs:
+            yield self.doc_to_employee(doc)
 
     def _find_by_email(self, email: str, transaction: Transaction | None = None) -> DocumentSnapshot | None:
         docs = (
@@ -93,11 +93,6 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         del employee_dict['id']
         del employee_dict['client_id']
 
-        # Convert enums y fecha a valores adecuados para Firestore
-        employee_dict['invitation_status'] = employee.invitation_status.value
-        if employee.invitation_date is not None:
-            employee_dict['invitation_date'] = employee.invitation_date.isoformat()
-
         client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
 
         client_ref = self.db.collection('clients').document(UUID_UNASSIGNED)
@@ -121,46 +116,8 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         for e in stream:
             cast(DocumentReference, e.reference).delete()
 
-    def count_by_client_id(self, client_id: str) -> int:
-        """
-        Cuenta el número total de empleados para un cliente específico.
-
-        Args:
-        client_id (str): ID del cliente para el cual contar los empleados.
-
-        Returns:
-        int: Número total de empleados.
-
-        """
+    def count(self, client_id: str) -> int:
         client_ref = self.db.collection('clients').document(client_id)
-        employees_ref = client_ref.collection('employees')
-
-        return len(list(employees_ref.stream()))
-
-    def list_by_client_id(self, client_id: str, page_size: int, page_number: int = 1) -> tuple[list[Employee], int]:
-        """
-        Lista los empleados de un cliente específico, ordenados por fecha de invitación descendente.
-
-        La lista admite paginación por número de página.
-
-        Args:
-        client_id (str): ID del cliente para el cual listar los empleados.
-        page_size (int): Cantidad de empleados por página (5, 10, 20).
-        page_number (int): Número de la página a obtener (1 es la primera página).
-
-        Returns:
-        tuple[list[Employee], int]: Lista de empleados y el número total de empleados.
-
-        """
-        client_ref = self.db.collection('clients').document(client_id)
-        query: Query = client_ref.collection('employees').order_by('invitation_date', direction=Query.DESCENDING)
-
-        # Saltar los elementos para llegar a la página solicitada
-        offset = (page_number - 1) * page_size
-        query = query.offset(offset).limit(page_size)
-        docs = query.stream()
-
-        employees = [self.doc_to_employee(doc) for doc in docs]
-
-        total_employees = self.count_by_client_id(client_id)
-        return employees, total_employees
+        employees_ref = cast(CollectionReference, client_ref.collection('employees'))
+        result = cast(AggregationResult, employees_ref.count().get()[0][0])  # type: ignore[no-untyped-call]
+        return int(result.value)
