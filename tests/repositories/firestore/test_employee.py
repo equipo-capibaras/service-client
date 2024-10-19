@@ -74,7 +74,7 @@ class TestEmployee(ParametrizedTestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(list(Plan)),
+            plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -142,7 +142,7 @@ class TestEmployee(ParametrizedTestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(list(Plan)),
+            plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -228,7 +228,7 @@ class TestEmployee(ParametrizedTestCase):
             client = Client(
                 id=cast(str, self.faker.uuid4()),
                 name=self.faker.company(),
-                plan=self.faker.random_element(list(Plan)),
+                plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
                 email_incidents=self.faker.unique.email(),
             )
 
@@ -256,7 +256,7 @@ class TestEmployee(ParametrizedTestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(list(Plan)),
+            plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -293,7 +293,7 @@ class TestEmployee(ParametrizedTestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(list(Plan)),
+            plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
             email_incidents=self.faker.unique.email(),
         )
 
