@@ -70,7 +70,7 @@ class TestClient(ParametrizedTestCase):
             Client(
                 id=cast(str, self.faker.uuid4()),
                 name=self.faker.company(),
-                plan=self.faker.random_element(list(Plan)),
+                plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
                 email_incidents=self.faker.unique.email(),
             )
             for _ in range(5)
@@ -105,7 +105,7 @@ class TestClient(ParametrizedTestCase):
         client = Client(
             id=cast(str, self.faker.uuid4()),
             name=self.faker.company(),
-            plan=self.faker.random_element(list(Plan)),
+            plan=self.faker.random_element(cast(list[Plan | None], [*list(Plan), None])),
             email_incidents=self.faker.unique.email(),
         )
 
@@ -128,7 +128,7 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['name'], client.name)
         self.assertEqual(resp_data['emailIncidents'], client.email_incidents)
         if expect_plan:
-            self.assertEqual(resp_data['plan'], client.plan.value)
+            self.assertEqual(resp_data['plan'], None if client.plan is None else client.plan.value)
         else:
             self.assertNotIn('plan', resp_data)
 

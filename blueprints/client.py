@@ -14,14 +14,14 @@ blp = Blueprint('Clients', __name__)
 
 
 def client_to_dict(client: Client, *, include_plan: bool = False) -> dict[str, Any]:
-    res = {
+    res: dict[str, Any] = {
         'id': client.id,
         'name': client.name,
         'emailIncidents': client.email_incidents,
     }
 
     if include_plan:
-        res['plan'] = client.plan.value
+        res['plan'] = None if client.plan is None else client.plan.value
 
     return res
 
