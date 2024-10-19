@@ -34,6 +34,31 @@ class TestEmployee(ParametrizedTestCase):
 
         self.emails = [self.faker.unique.email() for _ in range(4)]
 
+    def gen_add_employees(self, num: int, client_id: str | None, email: str | None = None) -> list[Employee]:
+        employees: list[Employee] = []
+        for _ in range(num):
+            employee = Employee(
+                id=cast(str, self.faker.uuid4()),
+                client_id=client_id,
+                name=self.faker.name(),
+                email=self.faker.unique.email() if email is None else email,
+                password=pbkdf2_sha256.hash(self.faker.password()),
+                role=self.faker.random_element(list(Role)),
+                invitation_status=self.faker.random_element(list(InvitationStatus)),
+                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
+            )
+            employees.append(employee)
+            employee_dict = asdict(employee)
+            del employee_dict['id']
+            del employee_dict['client_id']
+
+            client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
+            self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(
+                employee_dict
+            )
+
+        return employees
+
     @parametrize(
         ('email_idx_map', 'find_idx', 'assigned', 'expected'),
         [
@@ -57,27 +82,11 @@ class TestEmployee(ParametrizedTestCase):
         del client_dict['id']
         self.client.collection('clients').document(client.id).set(client_dict)
 
-        employees: list[Employee] = []
-        for idx, _ in enumerate(range(3)):
-            employee = Employee(
-                id=cast(str, self.faker.uuid4()),
-                client_id=client.id if assigned else None,
-                name=self.faker.name(),
-                email=self.emails[email_idx_map[idx]],
-                password=pbkdf2_sha256.hash(self.faker.password()),
-                role=self.faker.random_element(list(Role)),
-                invitation_status=self.faker.random_element(list(InvitationStatus)),
-                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
-            )
-            employees.append(employee)
-            employee_dict = asdict(employee)
-            del employee_dict['id']
-            del employee_dict['client_id']
+        client_id = client.id if assigned else None
 
-            client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
-            self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(
-                employee_dict
-            )
+        employees = list[Employee]()
+        for idx in range(3):
+            employees.append(self.gen_add_employees(1, client_id, self.emails[email_idx_map[idx]])[0])
 
         duplicate_emails = len(set(email_idx_map.values())) != len(email_idx_map)
 
@@ -109,22 +118,7 @@ class TestEmployee(ParametrizedTestCase):
         client_id = cast(str, self.faker.uuid4()) if assigned else None
         self.client.collection('clients').document(client_id).set({})
 
-        employee = Employee(
-            id=cast(str, self.faker.uuid4()),
-            client_id=client_id,
-            name=self.faker.name(),
-            email=self.faker.unique.email(),
-            password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
-            invitation_status=self.faker.random_element(list(InvitationStatus)),
-            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
-        )
-        employee_dict = asdict(employee)
-        del employee_dict['id']
-        del employee_dict['client_id']
-
-        client_id = UUID_UNASSIGNED if employee.client_id is None else employee.client_id
-        self.client.collection('clients').document(client_id).collection('employees').document(employee.id).set(employee_dict)
+        employee = self.gen_add_employees(1, client_id)[0]
 
         employee_db = self.repo.get(employee.id, employee.client_id)
 
@@ -242,25 +236,7 @@ class TestEmployee(ParametrizedTestCase):
             del client_dict['id']
             self.client.collection('clients').document(client.id).set(client_dict)
 
-            for _ in range(3):
-                employee = Employee(
-                    id=cast(str, self.faker.uuid4()),
-                    client_id=client.id,
-                    name=self.faker.name(),
-                    email=self.faker.unique.email(),
-                    password=pbkdf2_sha256.hash(self.faker.password()),
-                    role=self.faker.random_element(list(Role)),
-                    invitation_status=self.faker.random_element(list(InvitationStatus)),
-                    invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
-                )
-                employees.append(employee)
-                employee_dict = asdict(employee)
-                del employee_dict['id']
-                del employee_dict['client_id']
-
-                self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
-                    employee_dict
-                )
+            employees = employees + self.gen_add_employees(3, client.id)
 
         self.repo.delete_all()
 
@@ -288,24 +264,7 @@ class TestEmployee(ParametrizedTestCase):
         del client_dict['id']
         self.client.collection('clients').document(client.id).set(client_dict)
 
-        for _ in range(number_of_employees):
-            employee = Employee(
-                id=cast(str, self.faker.uuid4()),
-                client_id=client.id,
-                name=self.faker.name(),
-                email=self.faker.unique.email(),
-                password=pbkdf2_sha256.hash(self.faker.password()),
-                role=self.faker.random_element(list(Role)),
-                invitation_status=self.faker.random_element(list(InvitationStatus)),
-                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
-            )
-            employee_dict = asdict(employee)
-            del employee_dict['id']
-            del employee_dict['client_id']
-
-            self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
-                employee_dict
-            )
+        self.gen_add_employees(number_of_employees, client.id)
 
         count = self.repo.count(client.id)
 
@@ -342,26 +301,7 @@ class TestEmployee(ParametrizedTestCase):
         del client_dict['id']
         self.client.collection('clients').document(client.id).set(client_dict)
 
-        employees: list[Employee] = []
-        for _ in range(number_of_employees):
-            employee = Employee(
-                id=cast(str, self.faker.uuid4()),
-                client_id=client.id,
-                name=self.faker.name(),
-                email=self.faker.unique.email(),
-                password=pbkdf2_sha256.hash(self.faker.password()),
-                role=self.faker.random_element(list(Role)),
-                invitation_status=self.faker.random_element(list(InvitationStatus)),
-                invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
-            )
-            employees.append(employee)
-            employee_dict = asdict(employee)
-            del employee_dict['id']
-            del employee_dict['client_id']
-
-            self.client.collection('clients').document(client.id).collection('employees').document(employee.id).set(
-                employee_dict
-            )
+        employees = self.gen_add_employees(number_of_employees, client.id)
 
         employees_db = list(
             self.repo.get_all(
