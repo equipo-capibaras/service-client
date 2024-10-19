@@ -1,6 +1,6 @@
 import base64
 import json
-from typing import cast
+from typing import Any, cast
 from unittest.mock import Mock
 
 from faker import Faker
@@ -10,6 +10,7 @@ from werkzeug.test import TestResponse
 from app import create_app
 from models import Client, Plan, Role
 from repositories import ClientRepository
+from repositories.errors import DuplicateEmailError
 
 
 class TestClient(ParametrizedTestCase):
@@ -34,6 +35,13 @@ class TestClient(ParametrizedTestCase):
 
         token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
         return self.client.get(self.INFO_API_URL, headers={'X-Apigateway-Api-Userinfo': token_encoded})
+
+    def call_register_api(self, body: dict[str, Any] | str) -> TestResponse:
+        return self.client.post(
+            '/api/v1/clients',
+            data=body if isinstance(body, str) else json.dumps(body),
+            content_type='application/json',
+        )
 
     def test_info_no_token(self) -> None:
         resp = self.call_info_api(None)
@@ -174,3 +182,129 @@ class TestClient(ParametrizedTestCase):
 
         self.assertEqual(resp_data['code'], 400)
         self.assertEqual(resp_data['message'], 'Invalid client ID.')
+
+    def gen_register_data_with_bounds(self, field: str, length: int) -> dict[str, Any]:
+        register_data = {
+            'name': self.faker.company(),
+            'prefixEmailIncidents': self.faker.email().split('@')[0],
+        }
+
+        register_data[field] = self.faker.pystr(min_chars=length, max_chars=length)
+
+        return register_data
+
+    def test_register_invalid_json(self) -> None:
+        client_repo_mock = Mock(ClientRepository)
+        with self.app.container.client_repo.override(client_repo_mock):
+            resp = self.call_register_api('invalid json')
+
+        cast(Mock, client_repo_mock.create).assert_not_called()
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 400)
+        self.assertEqual(resp_data['message'], 'The request body could not be parsed as valid JSON.')
+
+    @parametrize(
+        'field',
+        [
+            ('name',),
+            ('prefixEmailIncidents',),
+        ],
+    )
+    def test_register_missing_field(self, field: str) -> None:
+        register_data = {
+            'name': self.faker.name(),
+            'prefixEmailIncidents': self.faker.email().split('@')[0],
+        }
+
+        del register_data[field]
+
+        client_repo_mock = Mock(ClientRepository)
+        with self.app.container.client_repo.override(client_repo_mock):
+            resp = self.call_register_api(register_data)
+
+        cast(Mock, client_repo_mock.create).assert_not_called()
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 400)
+        self.assertEqual(resp_data['message'], f'Invalid value for {field}: Missing data for required field.')
+
+    @parametrize(
+        ['field', 'length'],
+        [
+            ('name', 0),
+            ('name', 61),
+            ('prefixEmailIncidents', 61),
+            ('prefixEmailIncidents', 0),
+        ],
+    )
+    def test_register_bounds_fail(self, field: str, length: int) -> None:
+        register_data = self.gen_register_data_with_bounds(field, length)
+
+        client_repo_mock = Mock(ClientRepository)
+        with self.app.container.client_repo.override(client_repo_mock):
+            resp = self.call_register_api(register_data)
+
+        cast(Mock, client_repo_mock.create).assert_not_called()
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 400)
+        self.assertTrue(resp_data['message'].startswith(f'Invalid value for {field}:'))
+
+    @parametrize(
+        ['field', 'length'],
+        [
+            ('name', 1),
+            ('name', 60),
+            ('prefixEmailIncidents', 60),
+            ('prefixEmailIncidents', 1),
+        ],
+    )
+    def test_register_bounds_valid(self, field: str, length: int) -> None:
+        register_data = self.gen_register_data_with_bounds(field, length)
+
+        client_repo_mock = Mock(ClientRepository)
+        with self.app.container.client_repo.override(client_repo_mock):
+            resp = self.call_register_api(register_data)
+
+        cast(Mock, client_repo_mock.create).assert_called_once()
+        repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
+        self.assertEqual(repo_client.name, register_data['name'])
+        self.assertEqual(repo_client.email_incidents, register_data['prefixEmailIncidents'] + '@capibaras.io')
+
+        self.assertEqual(resp.status_code, 201)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['id'], repo_client.id)
+        self.assertEqual(resp_data['name'], repo_client.name)
+        self.assertEqual(resp_data['emailIncidents'], repo_client.email_incidents)
+
+    def test_register_duplicate_email(self) -> None:
+        register_data = {
+            'name': self.faker.name(),
+            'prefixEmailIncidents': self.faker.email().split('@')[0],
+        }
+
+        client_repo_mock = Mock(ClientRepository)
+        cast(Mock, client_repo_mock.create).side_effect = DuplicateEmailError(
+            register_data['prefixEmailIncidents'] + '@capibaras.io'
+        )
+        with self.app.container.client_repo.override(client_repo_mock):
+            resp = self.call_register_api(register_data)
+
+        cast(Mock, client_repo_mock.create).assert_called_once()
+        repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
+        self.assertEqual(repo_client.name, register_data['name'])
+        self.assertEqual(repo_client.email_incidents, register_data['prefixEmailIncidents'] + '@capibaras.io')
+
+        self.assertEqual(resp.status_code, 409)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 409)
+        self.assertEqual(resp_data['message'], 'Email already registered.')
