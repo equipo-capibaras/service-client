@@ -10,8 +10,8 @@ from flask.views import MethodView
 from marshmallow import ValidationError
 
 from containers import Container
-from models import Client, Plan, Role
-from repositories import ClientRepository
+from models import Client, InvitationStatus, Plan, Role
+from repositories import ClientRepository, EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
 from .util import class_route, error_response, is_valid_uuid4, json_response, requires_token, validation_error_response
@@ -59,7 +59,13 @@ class RegisterClientBody:
 class CreateClient(MethodView):
     init_every_request = False
 
-    def post(self, client_repo: ClientRepository = Provide[Container.client_repo]) -> Response:
+    @requires_token
+    def post(
+        self,
+        token: dict[str, Any],
+        client_repo: ClientRepository = Provide[Container.client_repo],
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+    ) -> Response:
         client_schema = marshmallow_dataclass.class_schema(RegisterClientBody)()
         req_json = request.get_json(silent=True)
 
@@ -79,10 +85,20 @@ class CreateClient(MethodView):
             plan=None,
         )
 
+        employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
+
+        if employee is None:
+            return error_response('Employee not found', 404)
+
         try:
             client_repo.create(client)
         except DuplicateEmailError:
             return error_response('Email already registered.', 409)
+
+        employee_repo.delete(employee_id=token['sub'], client_id=token['cid'])
+        employee.client_id = client.id
+        employee.invitation_status = InvitationStatus.ACCEPTED
+        employee_repo.create(employee)
 
         return json_response(client_to_dict(client, include_plan=True), 201)
 

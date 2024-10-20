@@ -111,6 +111,15 @@ class FirestoreEmployeeRepository(EmployeeRepository):
 
         create_employee_transaction(self.db.transaction(), employee_dict)
 
+    def delete(self, employee_id: str, client_id: str | None) -> None:
+        if client_id is None:
+            client_id = UUID_UNASSIGNED
+
+        client_ref = self.db.collection('clients').document(client_id)
+        employee_ref = cast(CollectionReference, client_ref.collection('employees')).document(employee_id)
+
+        employee_ref.delete()
+
     def delete_all(self) -> None:
         stream: Generator[DocumentSnapshot, None, None] = self.db.collection_group('employees').stream()
         for e in stream:

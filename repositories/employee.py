@@ -4,7 +4,7 @@ from models import Employee
 
 
 class EmployeeRepository:
-    def get(self, employee_id: str, client_id: str) -> Employee | None:
+    def get(self, employee_id: str, client_id: str | None) -> Employee | None:
         raise NotImplementedError  # pragma: no cover
 
     def get_all(self, client_id: str, offset: int | None, limit: int | None) -> Generator[Employee, None, None]:
@@ -14,6 +14,9 @@ class EmployeeRepository:
         raise NotImplementedError  # pragma: no cover
 
     def create(self, employee: Employee) -> None:
+        raise NotImplementedError  # pragma: no cover
+
+    def delete(self, employee_id: str, client_id: str | None) -> None:
         raise NotImplementedError  # pragma: no cover
 
     def delete_all(self) -> None:
