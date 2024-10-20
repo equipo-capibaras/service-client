@@ -10,7 +10,7 @@ from flask.views import MethodView
 from marshmallow import ValidationError
 
 from containers import Container
-from models import Client, Plan, Role
+from models import Client, InvitationStatus, Plan, Role
 from repositories import ClientRepository, EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
@@ -85,12 +85,20 @@ class CreateClient(MethodView):
             plan=None,
         )
 
+        employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
+
+        if employee is None:
+            return error_response('Employee not found', 404)
+
         try:
             client_repo.create(client)
         except DuplicateEmailError:
             return error_response('Email already registered.', 409)
 
-        # TODO: Move admin to new client
+        employee_repo.delete(employee_id=token['sub'], client_id=token['cid'])
+        employee.client_id = client.id
+        employee.invitation_status = InvitationStatus.ACCEPTED
+        employee_repo.create(employee)
 
         return json_response(client_to_dict(client, include_plan=True), 201)
 
