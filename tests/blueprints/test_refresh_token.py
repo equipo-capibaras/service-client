@@ -1,6 +1,7 @@
 import base64
 import json
 from datetime import UTC
+from enum import Enum
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -15,6 +16,11 @@ from werkzeug.test import TestResponse
 from app import create_app
 from models import Employee, InvitationStatus, Role
 from repositories import EmployeeRepository
+
+
+class AssignedOption(Enum):
+    ASSIGNED = 'assigned'
+    UNASSIGNED = 'unassigned'
 
 
 class TestAuthRefreshToken(ParametrizedTestCase):
@@ -49,12 +55,13 @@ class TestAuthRefreshToken(ParametrizedTestCase):
         )
 
     def test_refresh_token_employee_not_found(self) -> None:
+        role = cast(Role, self.faker.random_element(list(Role)))
         token = {
             'sub': cast(str, self.faker.uuid4()),
             'cid': cast(str, self.faker.uuid4()),
             'email': self.faker.email(),
-            'role': self.faker.random_element(list(Role)).value,
-            'aud': 'unassigned_' + self.faker.random_element(list(Role)).value,
+            'role': role.value,
+            'aud': 'unassigned_' + role.value,
         }
 
         employee_repo_mock = Mock(EmployeeRepository)
@@ -73,15 +80,16 @@ class TestAuthRefreshToken(ParametrizedTestCase):
     @parametrize(
         'assigned',
         [
-            (True,),
-            (False,),
+            (AssignedOption.ASSIGNED,),
+            (AssignedOption.UNASSIGNED,),
         ],
     )
-    def test_refresh_token_success(self, assigned: bool) -> None:
+    def test_refresh_token_success(self, assigned: AssignedOption) -> None:
+        assigned_bool = assigned == AssignedOption.ASSIGNED
         password = self.faker.password()
         employee = Employee(
             id=cast(str, self.faker.uuid4()),
-            client_id=cast(str, self.faker.uuid4()) if assigned else None,
+            client_id=cast(str, self.faker.uuid4()) if assigned_bool else None,
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(password),
