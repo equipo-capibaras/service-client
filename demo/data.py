@@ -41,6 +41,96 @@ employees_universo = [
         invitation_status=InvitationStatus.ACCEPTED,
         invitation_date=datetime(2024, 10, 13, 15, 11, 12, tzinfo=UTC),
     ),
+    Employee(
+        id='544d24df-1e09-4115-b465-13025e7bbfc5',
+        client_id=client_universo.id,
+        name='Ana Clara Oliveira',
+        email='ana.oliveira@universo.br',
+        password='$pbkdf2-sha256$29000$jTGm1DoHQKg15lyLUSolBA$V2eRaq5OQN0P.0PGM38PjMhIgGBh5Ig9a8rIS.XoYcM',  # noqa: S106
+        role=Role.AGENT,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 15, 8, 15, 42, tzinfo=UTC),
+    ),
+    Employee(
+        id='ec953b05-f153-4193-b357-9f2327d54281',
+        client_id=client_universo.id,
+        name='José Augusto Ferreira',
+        email='jose.ferreira@universo.br',
+        password='$pbkdf2-sha256$29000$4Pwfw1iLkRLivNd6L2WstQ$TdXjoSU1Tc0cUcO00QHMnTWb7/KPLoscrtLyHxo0cPw',  # noqa: S106
+        role=Role.ANALYST,
+        invitation_status=InvitationStatus.PENDING,
+        invitation_date=datetime(2024, 10, 16, 14, 32, 18, tzinfo=UTC),
+    ),
+    Employee(
+        id='64843bfd-2501-4e57-84de-1826ae3e5d88',
+        client_id=client_universo.id,
+        name='Marcos Vinicius Rodrigues',
+        email='marcos.rodrigues@universo.br',
+        password='$pbkdf2-sha256$29000$eS.FsLZ2rvVeKyVE6L2Xkg$sZMG7Wymswf7J2EPCu7kR0q9E0kr83aSnextc1ajiSw',  # noqa: S106
+        role=Role.AGENT,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 17, 9, 48, 53, tzinfo=UTC),
+    ),
+    Employee(
+        id='7293a54c-3e1b-4f96-a66e-d44cdc4e5f6b',
+        client_id=client_universo.id,
+        name='Juliana Cristina Pereira',
+        email='juliana.pereira@universo.br',
+        password='$pbkdf2-sha256$29000$KAUgJITwHkNo7b13TiklBA$9G0LqSSHqXigFdCrhbBHdSecBRtUAZlwCfN/.0iaRYg',  # noqa: S106
+        role=Role.AGENT,
+        invitation_status=InvitationStatus.PENDING,
+        invitation_date=datetime(2024, 10, 18, 11, 21, 6, tzinfo=UTC),
+    ),
+    Employee(
+        id='c18608fb-5f19-4389-a232-1104375fa468',
+        client_id=client_universo.id,
+        name='Lucas Gabriel Ferreira',
+        email='lucas.ferreira@universo.br',
+        password='$pbkdf2-sha256$29000$730PwVgLQehdy3lPSamVEg$AHNuK/3qxcADCI655V/Eiw3pjVZmlLDySP4B7p4cS0A',  # noqa: S106
+        role=Role.AGENT,
+        invitation_status=InvitationStatus.PENDING,
+        invitation_date=datetime(2024, 10, 17, 11, 52, 35, tzinfo=UTC),
+    ),
+    Employee(
+        id='d2ca7892-35f6-4680-b71c-1559c133997e',
+        client_id=client_universo.id,
+        name='Pedro Henrique Oliveira',
+        email='pedro.oliveira@universo.br',
+        password='$pbkdf2-sha256$29000$CEFISWlNKcU453wPQSjF.A$SzZltRRrxBClKB1FwzNjhYKI90refcsXH8.HfTHLfm8',  # noqa: S106
+        role=Role.AGENT,
+        invitation_status=InvitationStatus.PENDING,
+        invitation_date=datetime(2024, 10, 15, 16, 38, 17, tzinfo=UTC),
+    ),
+    Employee(
+        id='0a3b230a-3a9b-48a9-8868-5c58f7e8384c',
+        client_id=client_universo.id,
+        name='Laura Sophia Castro',
+        email='laura.castro@universo.br',
+        password='$pbkdf2-sha256$29000$2RsjRMj5vzcmBKCUMgaA8A$9Da9tMhwS87E5ip2uRkbzhAOB8926UVBJmzm4Eo.PK8',  # noqa: S106
+        role=Role.AGENT,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 18, 16, 35, 7, tzinfo=UTC),
+    ),
+    Employee(
+        id='5c1b18fe-8583-48d2-b4cc-b279e5d514d7',
+        client_id=client_universo.id,
+        name='Bianca Rebeca Cardoso',
+        email='bianca.cardoso@universo.br',
+        password='$pbkdf2-sha256$29000$5Nz7XytFCMF477231jpnrA$t/TUtqprrZzoVvp.TllmU9ky.Te2yrTHlrMXzmRVJy0',  # noqa: S106
+        role=Role.AGENT,
+        invitation_status=InvitationStatus.PENDING,
+        invitation_date=datetime(2024, 10, 16, 9, 42, 28, tzinfo=UTC),
+    ),
+    Employee(
+        id='d2bb55d7-3306-4f12-9d23-10437f7244f0',
+        client_id=client_universo.id,
+        name='Helena Cecília Moraes',
+        email='helena.moraes@universo.br',
+        password='$pbkdf2-sha256$29000$C.H8f6.VshbCOGfMWSvF.A$k6mT1f4ioUm0/WU3ja50m2dCdSwEuA4DU2l700svDbA',  # noqa: S106
+        role=Role.ANALYST,
+        invitation_status=InvitationStatus.ACCEPTED,
+        invitation_date=datetime(2024, 10, 19, 16, 12, 24, tzinfo=UTC),
+    ),
 ]
 
 # GlobalCom
