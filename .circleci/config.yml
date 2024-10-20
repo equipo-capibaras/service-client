@@ -70,6 +70,12 @@ jobs:
     resource_class: medium
     steps:
       - checkout
+      - gcp-cli/install:
+          components: 'cloud-firestore-emulator'
+      - run:
+          name: Start Firestore emulator
+          command: gcloud emulators firestore start --host-port=127.0.0.1:5005
+          background: true
       - run:
           name: Install dependencies
           command: pip install -r requirements.txt
@@ -83,15 +89,10 @@ jobs:
           name: Lint (mypy)
           command: mypy --strict .
           when: always
-      - gcp-cli/install:
-          components: 'cloud-firestore-emulator'
-      - run:
-          name: Start Firestore emulator
-          command: gcloud emulators firestore start --host-port=127.0.0.1:5005
-          background: true
       - run:
           name: Wait for the emulator to start
           command: npx wait-on -t 30s tcp:5005
+          when: always
       - run:
           name: Test
           command: |

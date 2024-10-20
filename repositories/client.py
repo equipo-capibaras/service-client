@@ -15,3 +15,6 @@ class ClientRepository:
 
     def delete_all(self) -> None:
         raise NotImplementedError  # pragma: no cover
+
+    def update(self, client: Client) -> None:
+        raise NotImplementedError  # pragma: no cover

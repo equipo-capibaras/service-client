@@ -7,5 +7,5 @@ from .plan import Plan
 class Client:
     id: str
     name: str
-    plan: Plan
+    plan: Plan | None
     email_incidents: str

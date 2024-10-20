@@ -11,9 +11,10 @@ from marshmallow import ValidationError
 from passlib.hash import pbkdf2_sha256
 
 from containers import Container
+from models import Employee
 from repositories import EmployeeRepository
 
-from .util import class_route, error_response, json_response, validation_error_response
+from .util import class_route, error_response, json_response, requires_token, validation_error_response
 
 blp = Blueprint('Authentication', __name__)
 
@@ -21,7 +22,9 @@ blp = Blueprint('Authentication', __name__)
 class JWTPayload(typing.TypedDict):
     iss: str
     sub: str
-    cid: str
+    cid: str | None
+    email: str
+    role: str
     aud: str
     iat: int
     exp: int
@@ -33,6 +36,29 @@ class AuthBody:
     password: str
 
 
+@inject
+def issue_token(
+    employee: Employee,
+    jwt_issuer: str = Provide[Container.config.jwt.issuer.required()],
+    jwt_private_key: str = Provide[Container.config.jwt.private_key.required()],
+) -> str:
+    time_issued = datetime.datetime.now(datetime.UTC)
+    time_expiry = time_issued + datetime.timedelta(minutes=15)
+
+    payload: JWTPayload = {
+        'iss': jwt_issuer,
+        'sub': employee.id,
+        'cid': employee.client_id,
+        'email': employee.email,
+        'role': employee.role.value,
+        'aud': ('unassigned_' if employee.client_id is None else '') + employee.role.value,
+        'iat': int(time_issued.timestamp()),
+        'exp': int(time_expiry.timestamp()),
+    }
+
+    return jwt.encode(typing.cast(dict[str, typing.Any], payload), jwt_private_key, algorithm='EdDSA')
+
+
 @class_route(blp, '/api/v1/auth/employee')
 class AuthEmployee(MethodView):
     init_every_request = False
@@ -41,8 +67,6 @@ class AuthEmployee(MethodView):
     def post(
         self,
         employee_repo: EmployeeRepository = Provide[Container.employee_repo],
-        jwt_issuer: str = Provide[Container.config.jwt.issuer.required()],
-        jwt_private_key: str = Provide[Container.config.jwt.private_key.required()],
     ) -> Response:
         auth_schema = marshmallow_dataclass.class_schema(AuthBody)()
         req_json = request.get_json(silent=True)
@@ -59,20 +83,28 @@ class AuthEmployee(MethodView):
         if employee is None or not pbkdf2_sha256.verify(data.password, employee.password):
             return error_response('Invalid username or password.', 401)
 
-        time_issued = datetime.datetime.now(datetime.UTC)
-        time_expiry = time_issued + datetime.timedelta(minutes=15)
-
-        payload: JWTPayload = {
-            'iss': jwt_issuer,
-            'sub': employee.id,
-            'cid': employee.client_id,
-            'aud': employee.role.value,
-            'iat': int(time_issued.timestamp()),
-            'exp': int(time_expiry.timestamp()),
+        resp = {
+            'token': issue_token(employee),
         }
 
+        return json_response(resp, 200)
+
+
+@class_route(blp, '/api/v1/auth/employee/refresh')
+class AuthEmployeeRefresh(MethodView):
+    init_every_request = False
+
+    @requires_token
+    def post(
+        self, token: dict[str, typing.Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]
+    ) -> Response:
+        employee = employee_repo.find_by_email(token['email'])
+
+        if employee is None:
+            return error_response('Employee not found', 404)
+
         resp = {
-            'token': jwt.encode(typing.cast(dict[str, typing.Any], payload), jwt_private_key, algorithm='EdDSA'),
+            'token': issue_token(employee),
         }
 
         return json_response(resp, 200)
