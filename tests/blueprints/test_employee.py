@@ -24,7 +24,7 @@ class TestEmployee(ParametrizedTestCase):
         self.app = create_app()
         self.client = self.app.test_client()
 
-    def gen_token(self, *, client_id: str | None, role: Role, assigned: bool) -> dict[str, Any]:
+    def gen_token_employee(self, *, client_id: str | None, role: Role, assigned: bool) -> dict[str, Any]:
         return {
             'sub': cast(str, self.faker.uuid4()),
             'cid': client_id,
@@ -32,7 +32,7 @@ class TestEmployee(ParametrizedTestCase):
             'aud': ('' if assigned else 'unassigned_') + role.value,
         }
 
-    def call_info_api(self, token: dict[str, str] | None) -> TestResponse:
+    def call_info_api_employee(self, token: dict[str, str] | None) -> TestResponse:
         if token is None:
             return self.client.get(self.INFO_API_URL)
 
@@ -51,7 +51,7 @@ class TestEmployee(ParametrizedTestCase):
         return self.client.get(self.LIST_API_URL, headers=headers, query_string=params)
 
     def test_info_employee_not_found(self) -> None:
-        token = self.gen_token(
+        token = self.gen_token_employee(
             client_id=cast(str, self.faker.uuid4()),
             role=self.faker.random_element(list(Role)),
             assigned=True,
@@ -61,7 +61,7 @@ class TestEmployee(ParametrizedTestCase):
 
         cast(Mock, employee_repo_mock.get).return_value = None
         with self.app.container.employee_repo.override(employee_repo_mock):
-            resp = self.call_info_api(token)
+            resp = self.call_info_api_employee(token)
 
         self.assertEqual(resp.status_code, 404)
         resp_data = json.loads(resp.get_data())
@@ -93,7 +93,7 @@ class TestEmployee(ParametrizedTestCase):
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
-        token = self.gen_token(
+        token = self.gen_token_employee(
             client_id=employee.client_id,
             role=employee.role,
             assigned=assigned,
@@ -103,7 +103,7 @@ class TestEmployee(ParametrizedTestCase):
 
         cast(Mock, employee_repo_mock.get).return_value = employee
         with self.app.container.employee_repo.override(employee_repo_mock):
-            resp = self.call_info_api(token)
+            resp = self.call_info_api_employee(token)
 
         self.assertEqual(resp.status_code, 200)
         resp_data = json.loads(resp.get_data())
@@ -174,7 +174,7 @@ class TestEmployee(ParametrizedTestCase):
 
     def test_list_employees_forbidden(self) -> None:
         # Probar acceso con usuario que no es administrador
-        token = self.gen_token(
+        token = self.gen_token_employee(
             client_id=cast(str, self.faker.uuid4()),
             role=self.faker.random_element([Role.ANALYST, Role.AGENT]),
             assigned=True,
@@ -219,7 +219,7 @@ class TestEmployee(ParametrizedTestCase):
         employees.sort(key=lambda e: e.invitation_date, reverse=True)
 
         # Generar token de administrador
-        token = self.gen_token(
+        token = self.gen_token_employee(
             client_id=client_id,
             role=Role.ADMIN,
             assigned=True,
@@ -244,7 +244,7 @@ class TestEmployee(ParametrizedTestCase):
 
     def test_invalid_page_size(self) -> None:
         # Probar con un page_size inválido
-        token = self.gen_token(
+        token = self.gen_token_employee(
             client_id=cast(str, self.faker.uuid4()),
             role=Role.ADMIN,
             assigned=True,
@@ -264,7 +264,7 @@ class TestEmployee(ParametrizedTestCase):
 
     def test_invalid_page_number(self) -> None:
         # Simular un token válido con permisos de administrador
-        token = self.gen_token(
+        token = self.gen_token_employee(
             client_id=cast(str, self.faker.uuid4()),
             role=Role.ADMIN,
             assigned=True,

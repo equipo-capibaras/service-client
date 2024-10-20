@@ -24,7 +24,7 @@ class TestClient(ParametrizedTestCase):
         self.app = create_app()
         self.client = self.app.test_client()
 
-    def gen_token(self, *, client_id: str | None, role: Role, assigned: bool = True) -> dict[str, Any]:
+    def gen_token_client(self, *, client_id: str | None, role: Role, assigned: bool = True) -> dict[str, Any]:
         return {
             'sub': cast(str, self.faker.uuid4()),
             'cid': client_id,
@@ -32,7 +32,7 @@ class TestClient(ParametrizedTestCase):
             'aud': ('' if assigned else 'unassigned_') + role.value,
         }
 
-    def call_info_api(self, token: dict[str, str] | None) -> TestResponse:
+    def call_info_api_client(self, token: dict[str, str] | None) -> TestResponse:
         if token is None:
             return self.client.get(self.INFO_API_URL)
 
@@ -53,7 +53,7 @@ class TestClient(ParametrizedTestCase):
         return self.client.post(f'{self.PLAN_API_URL}/{plan}', headers={'X-Apigateway-Api-Userinfo': token_encoded})
 
     def test_info_no_token(self) -> None:
-        resp = self.call_info_api(None)
+        resp = self.call_info_api_client(None)
 
         self.assertEqual(resp.status_code, 401)
         resp_data = json.loads(resp.get_data())
@@ -70,12 +70,12 @@ class TestClient(ParametrizedTestCase):
         ],
     )
     def test_info_token_missing_fields(self, missing_field: str) -> None:
-        token = self.gen_token(
+        token = self.gen_token_client(
             client_id=cast(str, self.faker.uuid4()),
             role=self.faker.random_element(list(Role)),
         )
         del token[missing_field]
-        resp = self.call_info_api(token)
+        resp = self.call_info_api_client(token)
 
         self.assertEqual(resp.status_code, 401)
         resp_data = json.loads(resp.get_data())
@@ -133,8 +133,8 @@ class TestClient(ParametrizedTestCase):
             if api_method == 'get':
                 resp = self.client.get(f'/api/v1/clients/{client.id}')
             else:
-                token = self.gen_token(client_id=client.id, role=cast(Role, role))
-                resp = self.call_info_api(token)
+                token = self.gen_token_client(client_id=client.id, role=cast(Role, role))
+                resp = self.call_info_api_client(token)
 
         cast(Mock, client_repo_mock.get).assert_called_once_with(client.id)
 
@@ -165,8 +165,8 @@ class TestClient(ParametrizedTestCase):
             if api_method == 'get':
                 resp = self.client.get(f'/api/v1/clients/{client_id}')
             else:
-                token = self.gen_token(client_id=client_id, role=self.faker.random_element(list(Role)))
-                resp = self.call_info_api(token)
+                token = self.gen_token_client(client_id=client_id, role=self.faker.random_element(list(Role)))
+                resp = self.call_info_api_client(token)
 
         cast(Mock, client_repo_mock.get).assert_called_once_with(client_id)
 
@@ -203,7 +203,7 @@ class TestClient(ParametrizedTestCase):
         return register_data
 
     def test_register_invalid_json(self) -> None:
-        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
+        token = self.gen_token_client(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         client_repo_mock = Mock(ClientRepository)
         with self.app.container.client_repo.override(client_repo_mock):
             resp = self.call_register_api('invalid json', token=token)
@@ -224,7 +224,7 @@ class TestClient(ParametrizedTestCase):
         ],
     )
     def test_register_missing_field(self, field: str) -> None:
-        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
+        token = self.gen_token_client(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         register_data = {
             'name': self.faker.name(),
             'prefixEmailIncidents': self.faker.email().split('@')[0],
@@ -254,7 +254,7 @@ class TestClient(ParametrizedTestCase):
         ],
     )
     def test_register_bounds_fail(self, field: str, length: int) -> None:
-        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
+        token = self.gen_token_client(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         register_data = self.gen_register_data_with_bounds(field, length)
 
         client_repo_mock = Mock(ClientRepository)
@@ -290,7 +290,7 @@ class TestClient(ParametrizedTestCase):
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
-        token = self.gen_token(
+        token = self.gen_token_client(
             client_id=employee.client_id,
             role=employee.role,
             assigned=False,
@@ -331,7 +331,7 @@ class TestClient(ParametrizedTestCase):
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
-        token = self.gen_token(
+        token = self.gen_token_client(
             client_id=employee.client_id,
             role=employee.role,
             assigned=False,
@@ -378,7 +378,7 @@ class TestClient(ParametrizedTestCase):
         client_repo_mock = Mock(ClientRepository)
         cast(Mock, client_repo_mock.get).return_value = client
 
-        token = self.gen_token(client_id=client.id, role=Role.ADMIN)
+        token = self.gen_token_client(client_id=client.id, role=Role.ADMIN)
 
         with self.app.container.client_repo.override(client_repo_mock):
             resp = self.call_select_plan_api(plan=new_plan, token=token)
@@ -394,7 +394,7 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['plan'], new_plan)
 
     def test_select_plan_invalid_plan(self) -> None:
-        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN)
+        token = self.gen_token_client(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN)
 
         resp = self.call_select_plan_api(plan=self.faker.pystr(), token=token)
 
@@ -405,7 +405,7 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['message'], 'Invalid plan.')
 
     def test_select_plan_not_admin(self) -> None:
-        token = self.gen_token(
+        token = self.gen_token_client(
             client_id=cast(str, self.faker.uuid4()), role=self.faker.random_element([Role.ANALYST, Role.AGENT])
         )
 
@@ -418,7 +418,7 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['message'], 'You do not have access to this resource.')
 
     def test_select_plan_client_not_found(self) -> None:
-        token = self.gen_token(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN)
+        token = self.gen_token_client(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN)
 
         client_repo_mock = Mock(ClientRepository)
         cast(Mock, client_repo_mock.get).return_value = None
