@@ -333,3 +333,24 @@ class TestEmployee(ParametrizedTestCase):
         employees = list(self.repo.get_all(client_id, offset=offset, limit=limit))
 
         self.assertEqual(employees, [])
+
+    def test_delete(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        employee = self.gen_add_employees(1, client_id)[0]
+
+        # Verify employee exists before deletion
+        employee_ref = cast(
+            DocumentReference,
+            self.client.collection('clients').document(client_id).collection('employees').document(employee.id),
+        )
+        doc = employee_ref.get()
+        self.assertTrue(doc.exists)
+
+        # Delete the employee
+        self.repo.delete(employee.id, employee.client_id)
+
+        # Verify employee is deleted
+        doc = employee_ref.get()
+        self.assertFalse(doc.exists)
