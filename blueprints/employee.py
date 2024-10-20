@@ -137,6 +137,7 @@ class EmployeeList(MethodView):
             'employees': [employee_to_dict(employee) for employee in employees],
             'totalPages': total_pages,
             'currentPage': page_number,
+            'totalEmployees': total_employees,
         }
 
         return json_response(response_data, 200)
