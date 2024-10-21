@@ -1,4 +1,4 @@
-coverage==7.6.3
+coverage==7.6.4
 dacite==1.8.1
 dependency-injector==4.42.0
 Faker==30.6.0
