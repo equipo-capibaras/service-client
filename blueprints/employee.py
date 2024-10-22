@@ -37,8 +37,7 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
 @dataclass
 class RegisterEmployeeBody:
     name: str = field(metadata={'validate': marshmallow.validate.Length(min=1, max=60)})
-    email: str = field(
-        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
     password: str = field(metadata={'validate': marshmallow.validate.Length(min=8)})
     role: str = field(
         metadata={'validate': marshmallow.validate.OneOf([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value])}
@@ -47,9 +46,8 @@ class RegisterEmployeeBody:
 
 # Invitation validation class
 @dataclass
-class InviteEmplyeeBody:
-    email: str = field(
-        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+class InviteEmployeeBody:
+    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
 
 
 @class_route(blp, '/api/v1/employees/me')
@@ -57,8 +55,7 @@ class EmployeeInfo(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
 
         if employee is None:
@@ -111,8 +108,7 @@ class EmployeeList(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         # Verify if the user has administrator permissions
         if token['role'] != Role.ADMIN.value:
             return error_response('Forbidden: You do not have access to this resource.', 403)
@@ -159,59 +155,56 @@ class EmployeeInvite(MethodView):
 
     @requires_token
     def post(
-            self,
-            token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+        self,
+        token: dict[str, Any],
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
     ) -> Response:
-        # Verify if the user has administrator permissions and is linked to a client
-        if token['role'] != Role.ADMIN.value:
-            return error_response('Forbidden: You do not have access to this resource.', 403)
+        # Validate if the requester has admin privileges and is linked to a company
+        if token['role'] != Role.ADMIN.value or token['cid'] is None:
+            return error_response('Forbidden: You do not have access to this resource or must be linked to a company.', 403)
 
-        if token['cid'] is None:
-            return error_response('Forbidden: You must be linked to a company to invite employees.', 403)
-
-        # Validate request body
-        invite_schema = marshmallow_dataclass.class_schema(InviteEmplyeeBody)()
+        # Parse request body
+        invite_schema = marshmallow_dataclass.class_schema(InviteEmployeeBody)()
         req_json = request.get_json(silent=True)
 
         if req_json is None:
             return error_response('Request body must be a JSON object.', 400)
 
         try:
-            data: InviteEmplyeeBody = invite_schema.load(req_json)
+            data: InviteEmployeeBody = invite_schema.load(req_json)
         except ValidationError as err:
             return validation_error_response(err)
 
-        # Check if the employee already exists
+        # Find employee by email
         employee = employee_repo.find_by_email(data.email)
 
         if employee is None:
             return error_response('Employee not found.', 404)
 
-        # Validate if employee is already linked to another client
+        # Validate employee state
+        error_message = None
         if employee.client_id is not None and employee.client_id != token['cid']:
-            return error_response('Employee already linked to another company.', 409)
+            error_message = 'Employee already linked to another company.'
+        elif employee.client_id == token['cid']:
+            error_message = 'Employee already linked to your company'
+        elif employee.invitation_status != InvitationStatus.UNINVITED:
+            error_message = 'Employee already invited.'
 
-        # Validate if employee is already invited to the client
-        if employee.client_id == token['cid']:
-            return error_response('Employee already linked to your company', 409)
+        if error_message:
+            return error_response(error_message, 409)
 
-        # Validare if employee is already invited
-        if employee.invitation_status != InvitationStatus.UNINVITED:
-            return error_response('Employee already invited.', 409)
-
-        # Update employee invitation status and client_id
-        employee.client_id = token['cid']
+        # Update employee invitation status and date
         employee.invitation_status = InvitationStatus.PENDING
         employee.invitation_date = datetime.now(UTC).replace(microsecond=0)
 
         # Save updated employee
-        employee_repo.delete(employee_id=employee.id, client_id=None)
+        employee_repo.delete(employee_id=employee.id, client_id=employee.client_id)
         employee_repo.create(employee)
 
-        response_data = {
-            'message': 'Employee invited successfully',
-            'employee': employee_to_dict(employee),
-        }
-
-        return json_response(response_data, 201)
+        return json_response(
+            {
+                'message': 'Employee invited successfully',
+                'employee': employee_to_dict(employee),
+            },
+            201,
+        )

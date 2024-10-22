@@ -1,6 +1,6 @@
 import base64
 import json
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any, cast
 from unittest.mock import Mock
 
@@ -18,6 +18,7 @@ class TestEmployee(ParametrizedTestCase):
     INFO_API_URL = '/api/v1/employees/me'
     REGISTER_API_URL = '/api/v1/employees'
     LIST_API_URL = '/api/v1/employees'
+    INVITE_API_URL = '/api/v1/employees/invite'
 
     def setUp(self) -> None:
         self.faker = Faker()
@@ -49,6 +50,14 @@ class TestEmployee(ParametrizedTestCase):
             headers = {'X-Apigateway-Api-Userinfo': token_encoded}
 
         return self.client.get(self.LIST_API_URL, headers=headers, query_string=params)
+
+    def call_invite_api(self, payload: dict[str, Any], token: dict[str, str]) -> TestResponse:
+        token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
+        return self.client.post(
+            self.INVITE_API_URL,
+            json=payload,
+            headers={'X-Apigateway-Api-Userinfo': token_encoded},
+        )
 
     def test_info_employee_not_found(self) -> None:
         token = self.gen_token_employee(
@@ -284,3 +293,142 @@ class TestEmployee(ParametrizedTestCase):
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
         self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid page_number. Page number must be 1 or greater.'})
+
+    def test_invite_employee_success(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
+        employee = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=None,
+            name=self.faker.name(),
+            email=self.faker.email(),
+            password=self.faker.password(),
+            role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.UNINVITED,
+            invitation_date=datetime.now(UTC).replace(microsecond=0),
+        )
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            payload = {'email': employee.email}
+            resp = self.call_invite_api(payload, token)
+
+        self.assertEqual(resp.status_code, 201)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['message'], 'Employee invited successfully')
+        self.assertEqual(resp_data['employee']['id'], employee.id)
+        self.assertEqual(resp_data['employee']['email'], employee.email)
+        self.assertEqual(resp_data['employee']['invitationStatus'], InvitationStatus.PENDING.value)
+        self.assertIsNotNone(resp_data['employee']['invitationDate'])
+
+    def test_invite_employee_not_admin(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ANALYST, assigned=True)
+        payload = {'email': self.faker.email()}
+
+        resp = self.call_invite_api(payload, token)
+
+        self.assertEqual(resp.status_code, 403)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(
+            resp_data['message'], 'Forbidden: You do not have access to this resource or must be linked to a company.'
+        )
+
+    def test_invite_employee_not_linked_to_company(self) -> None:
+        token = self.gen_token_employee(client_id=None, role=Role.ADMIN, assigned=True)
+        payload = {'email': self.faker.email()}
+
+        resp = self.call_invite_api(payload, token)
+
+        self.assertEqual(resp.status_code, 403)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(
+            resp_data['message'], 'Forbidden: You do not have access to this resource or must be linked to a company.'
+        )
+
+    def test_invite_employee_already_linked_to_another_company(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=True)
+        employee = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=cast(str, self.faker.uuid4()),
+            name=self.faker.name(),
+            email=self.faker.email(),
+            password=self.faker.password(),
+            role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.UNINVITED,
+            invitation_date=datetime.now(UTC).replace(microsecond=0),
+        )
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            payload = {'email': employee.email}
+            resp = self.call_invite_api(payload, token)
+
+        self.assertEqual(resp.status_code, 409)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Employee already linked to another company.')
+
+    def test_invite_employee_already_linked_to_same_company(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        token = self.gen_token_employee(client_id=client_id, role=Role.ADMIN, assigned=True)
+        employee = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=client_id,
+            name=self.faker.name(),
+            email=self.faker.email(),
+            password=self.faker.password(),
+            role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.UNINVITED,
+            invitation_date=datetime.now(UTC).replace(microsecond=0),
+        )
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            payload = {'email': employee.email}
+            resp = self.call_invite_api(payload, token)
+
+        self.assertEqual(resp.status_code, 409)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Employee already linked to your company')
+
+    def test_invite_employee_already_invited(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=True)
+        employee = Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=None,
+            name=self.faker.name(),
+            email=self.faker.email(),
+            password=self.faker.password(),
+            role=self.faker.random_element(list(Role)),
+            invitation_status=InvitationStatus.PENDING,
+            invitation_date=datetime.now(UTC),
+        )
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            payload = {'email': employee.email}
+            resp = self.call_invite_api(payload, token)
+
+        self.assertEqual(resp.status_code, 409)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Employee already invited.')
+
+    def test_invite_employee_not_found(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=True)
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.find_by_email).return_value = None
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            payload = {'email': self.faker.email()}
+            resp = self.call_invite_api(payload, token)
+
+        self.assertEqual(resp.status_code, 404)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Employee not found.')
