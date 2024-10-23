@@ -44,6 +44,12 @@ class RegisterEmployeeBody:
     )
 
 
+# Invitation validation class
+@dataclass
+class InviteEmployeeBody:
+    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+
+
 @class_route(blp, '/api/v1/employees/me')
 class EmployeeInfo(MethodView):
     init_every_request = False
@@ -141,3 +147,64 @@ class EmployeeList(MethodView):
         }
 
         return json_response(response_data, 200)
+
+
+@class_route(blp, '/api/v1/employees/invite')
+class EmployeeInvite(MethodView):
+    init_every_request = False
+
+    @requires_token
+    def post(
+        self,
+        token: dict[str, Any],
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+    ) -> Response:
+        # Validate if the requester has admin privileges and is linked to a company
+        if token['role'] != Role.ADMIN.value or token['cid'] is None:
+            return error_response('Forbidden: You do not have access to this resource or must be linked to a company.', 403)
+
+        # Parse request body
+        invite_schema = marshmallow_dataclass.class_schema(InviteEmployeeBody)()
+        req_json = request.get_json(silent=True)
+
+        if req_json is None:
+            return error_response('Request body must be a JSON object.', 400)
+
+        try:
+            data: InviteEmployeeBody = invite_schema.load(req_json)
+        except ValidationError as err:
+            return validation_error_response(err)
+
+        # Find employee by email
+        employee = employee_repo.find_by_email(data.email)
+
+        if employee is None:
+            return error_response('Employee not found.', 404)
+
+        # Validate employee state
+        error_message = None
+        if employee.client_id is not None and employee.client_id != token['cid']:
+            error_message = 'Employee already linked to another company.'
+        elif employee.client_id == token['cid']:
+            error_message = 'Employee already linked to your company'
+        elif employee.invitation_status != InvitationStatus.UNINVITED:
+            error_message = 'Employee already invited.'
+
+        if error_message:
+            return error_response(error_message, 409)
+
+        # Update employee invitation status and date
+        employee.invitation_status = InvitationStatus.PENDING
+        employee.invitation_date = datetime.now(UTC).replace(microsecond=0)
+
+        # Save updated employee
+        employee_repo.delete(employee_id=employee.id, client_id=employee.client_id)
+        employee_repo.create(employee)
+
+        return json_response(
+            {
+                'message': 'Employee invited successfully',
+                'employee': employee_to_dict(employee),
+            },
+            201,
+        )
