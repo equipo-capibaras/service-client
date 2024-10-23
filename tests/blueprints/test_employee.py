@@ -294,11 +294,14 @@ class TestEmployee(ParametrizedTestCase):
         resp_data = json.loads(resp.get_data())
         self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid page_number. Page number must be 1 or greater.'})
 
-    def test_invite_employee_success(self) -> None:
-        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
-        employee = Employee(
+    """
+    Invite Employee tests
+    """
+
+    def setup_employee(self, client_id: str | None = None) -> Employee:
+        return Employee(
             id=cast(str, self.faker.uuid4()),
-            client_id=None,
+            client_id=client_id,
             name=self.faker.name(),
             email=self.faker.email(),
             password=self.faker.password(),
@@ -307,16 +310,21 @@ class TestEmployee(ParametrizedTestCase):
             invitation_date=datetime.now(UTC).replace(microsecond=0),
         )
 
+    def setup_invite_test(self, employee: Employee, token: dict[str, Any]) -> TestResponse:
         employee_repo_mock = Mock(EmployeeRepository)
         cast(Mock, employee_repo_mock.find_by_email).return_value = employee
 
         with self.app.container.employee_repo.override(employee_repo_mock):
             payload = {'email': employee.email}
-            resp = self.call_invite_api(payload, token)
+            return self.call_invite_api(payload, token)
+
+    def test_invite_employee_success(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
+        employee = self.setup_employee()
+        resp = self.setup_invite_test(employee, token)
 
         self.assertEqual(resp.status_code, 201)
         resp_data = json.loads(resp.get_data())
-
         self.assertEqual(resp_data['message'], 'Employee invited successfully')
         self.assertEqual(resp_data['employee']['id'], employee.id)
         self.assertEqual(resp_data['employee']['email'], employee.email)
@@ -349,23 +357,8 @@ class TestEmployee(ParametrizedTestCase):
 
     def test_invite_employee_already_linked_to_another_company(self) -> None:
         token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=True)
-        employee = Employee(
-            id=cast(str, self.faker.uuid4()),
-            client_id=cast(str, self.faker.uuid4()),
-            name=self.faker.name(),
-            email=self.faker.email(),
-            password=self.faker.password(),
-            role=self.faker.random_element(list(Role)),
-            invitation_status=InvitationStatus.UNINVITED,
-            invitation_date=datetime.now(UTC).replace(microsecond=0),
-        )
-
-        employee_repo_mock = Mock(EmployeeRepository)
-        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
-
-        with self.app.container.employee_repo.override(employee_repo_mock):
-            payload = {'email': employee.email}
-            resp = self.call_invite_api(payload, token)
+        employee = self.setup_employee(client_id=cast(str, self.faker.uuid4()))
+        resp = self.setup_invite_test(employee, token)
 
         self.assertEqual(resp.status_code, 409)
         resp_data = json.loads(resp.get_data())
@@ -374,23 +367,8 @@ class TestEmployee(ParametrizedTestCase):
     def test_invite_employee_already_linked_to_same_company(self) -> None:
         client_id = cast(str, self.faker.uuid4())
         token = self.gen_token_employee(client_id=client_id, role=Role.ADMIN, assigned=True)
-        employee = Employee(
-            id=cast(str, self.faker.uuid4()),
-            client_id=client_id,
-            name=self.faker.name(),
-            email=self.faker.email(),
-            password=self.faker.password(),
-            role=self.faker.random_element(list(Role)),
-            invitation_status=InvitationStatus.UNINVITED,
-            invitation_date=datetime.now(UTC).replace(microsecond=0),
-        )
-
-        employee_repo_mock = Mock(EmployeeRepository)
-        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
-
-        with self.app.container.employee_repo.override(employee_repo_mock):
-            payload = {'email': employee.email}
-            resp = self.call_invite_api(payload, token)
+        employee = self.setup_employee(client_id=client_id)
+        resp = self.setup_invite_test(employee, token)
 
         self.assertEqual(resp.status_code, 409)
         resp_data = json.loads(resp.get_data())
