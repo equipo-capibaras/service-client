@@ -12,7 +12,7 @@ from marshmallow import ValidationError
 from passlib.handlers.pbkdf2 import pbkdf2_sha256
 
 from containers import Container
-from models import Employee, InvitationStatus, Role
+from models import Employee, InvitationStatus, Role, InvitationResponse
 from repositories import EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
@@ -37,7 +37,8 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
 @dataclass
 class RegisterEmployeeBody:
     name: str = field(metadata={'validate': marshmallow.validate.Length(min=1, max=60)})
-    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(
+        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
     password: str = field(metadata={'validate': marshmallow.validate.Length(min=8)})
     role: str = field(
         metadata={'validate': marshmallow.validate.OneOf([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value])}
@@ -47,7 +48,14 @@ class RegisterEmployeeBody:
 # Invitation validation class
 @dataclass
 class InviteEmployeeBody:
-    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(
+        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+
+
+@dataclass
+class ResponseInvitationBody:
+    response: str = field(metadata={
+        'response': marshmallow.validate.OneOf([InvitationResponse.ACCEPTED.value, InvitationResponse.DECLINED.value])})
 
 
 @class_route(blp, '/api/v1/employees/me')
@@ -55,7 +63,8 @@ class EmployeeInfo(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any],
+            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
 
         if employee is None:
@@ -108,7 +117,8 @@ class EmployeeList(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any],
+            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         # Verify if the user has administrator permissions
         if token['role'] != Role.ADMIN.value:
             return error_response('Forbidden: You do not have access to this resource.', 403)
@@ -155,13 +165,14 @@ class EmployeeInvite(MethodView):
 
     @requires_token
     def post(
-        self,
-        token: dict[str, Any],
-        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+            self,
+            token: dict[str, Any],
+            employee_repo: EmployeeRepository = Provide[Container.employee_repo],
     ) -> Response:
         # Validate if the requester has admin privileges and is linked to a company
         if token['role'] != Role.ADMIN.value or token['cid'] is None:
-            return error_response('Forbidden: You do not have access to this resource or must be linked to a company.', 403)
+            return error_response('Forbidden: You do not have access to this resource or must be linked to a company.',
+                                  403)
 
         # Parse request body
         invite_schema = marshmallow_dataclass.class_schema(InviteEmployeeBody)()
@@ -208,4 +219,68 @@ class EmployeeInvite(MethodView):
                 'employee': employee_to_dict(employee),
             },
             201,
+        )
+
+
+@class_route(blp, '/api/v1/employees/invitation')
+class EmployeeInvitationResponse(MethodView):
+
+    @requires_token
+    def post(
+            self,
+            token: dict[str, Any],
+            employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+    ) -> Response:
+        respond_schema = marshmallow_dataclass.class_schema(ResponseInvitationBody)()
+        req_json = request.get_json(silent=True)
+
+        if req_json is None:
+            return error_response('Request body must be a JSON object.', 400)
+
+        try:
+            data: ResponseInvitationBody = respond_schema.load(req_json)
+        except ValidationError as err:
+            return validation_error_response(err)
+
+        # Get the employee from the token
+        employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
+
+        # Validations
+        error_message = None
+        error_code = None
+
+        if employee is None:
+            error_message = 'Employee not found'
+            error_code = 404
+        if employee.client_id is None:
+            error_message = 'No invitation to respond to'
+            error_code = 404
+        if employee.invitation_status == InvitationStatus.ACCEPTED:
+            error_message = 'You are already linked to the organization'
+            error_code = 409
+        if error_message:
+            return error_response(error_message, error_code)
+
+        # Process the invitation response
+        if data.response == InvitationResponse.ACCEPTED.value:
+            employee.invitation_status = InvitationStatus.ACCEPTED
+            message = 'Invitation accepted successfully'
+        elif data.response == InvitationResponse.DECLINED.value:
+            employee.invitation_status = InvitationStatus.UNINVITED
+            employee.client_id = None
+            employee.invitation_date = datetime.now(UTC).replace(microsecond=0)
+            message = 'Invitation declined successfully'
+        else:
+            return error_response('Invalid response', 400)
+
+        # Save the updated employee
+        employee_repo.delete(employee_id=employee.id, client_id=token['cid'])
+        employee_repo.create(employee)
+
+        return json_response(
+            {
+                'message': message,
+                'employee': employee_to_dict(employee),
+            },
+            200,
         )
