@@ -194,11 +194,12 @@ class EmployeeInvite(MethodView):
             return error_response(error_message, 409)
 
         # Update employee invitation status and date
+        employee.client_id = token['cid']
         employee.invitation_status = InvitationStatus.PENDING
         employee.invitation_date = datetime.now(UTC).replace(microsecond=0)
 
         # Save updated employee
-        employee_repo.delete(employee_id=employee.id, client_id=employee.client_id)
+        employee_repo.delete(employee_id=employee.id, client_id=None)
         employee_repo.create(employee)
 
         return json_response(
