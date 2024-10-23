@@ -294,17 +294,13 @@ class TestEmployee(ParametrizedTestCase):
         resp_data = json.loads(resp.get_data())
         self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid page_number. Page number must be 1 or greater.'})
 
-    """
-    Invite Employee tests
-    """
-
     def setup_employee(self, client_id: str | None = None) -> Employee:
         return Employee(
             id=cast(str, self.faker.uuid4()),
             client_id=client_id,
             name=self.faker.name(),
             email=self.faker.email(),
-            password=self.faker.password(),
+            password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
             invitation_status=InvitationStatus.UNINVITED,
             invitation_date=datetime.now(UTC).replace(microsecond=0),
