@@ -56,7 +56,7 @@ class InviteEmployeeBody:
 class ResponseInvitationBody:
     response: str = field(
         metadata={
-            'response': marshmallow.validate.OneOf([InvitationResponse.ACCEPTED.value, InvitationResponse.DECLINED.value])
+            'validate': marshmallow.validate.OneOf([InvitationResponse.ACCEPTED.value, InvitationResponse.DECLINED.value])
         }
     )
 

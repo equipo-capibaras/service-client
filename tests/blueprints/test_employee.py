@@ -512,4 +512,4 @@ class TestEmployee(ParametrizedTestCase):
 
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
-        self.assertEqual(resp_data['message'], 'Invalid response')
+        self.assertEqual(resp_data['message'], 'Invalid value for response: Must be one of: accepted, declined.')
