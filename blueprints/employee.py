@@ -281,5 +281,5 @@ class EmployeeInvitationResponse(MethodView):
                 'message': message,
                 'employee': employee_to_dict(employee),
             },
-            200,
+            201,
         )
