@@ -10,7 +10,7 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 from werkzeug.test import TestResponse
 
 from app import create_app
-from models import Employee, InvitationStatus, Role
+from models import Employee, InvitationResponse, InvitationStatus, Role
 from repositories import DuplicateEmailError, EmployeeRepository
 
 
@@ -19,6 +19,7 @@ class TestEmployee(ParametrizedTestCase):
     REGISTER_API_URL = '/api/v1/employees'
     LIST_API_URL = '/api/v1/employees'
     INVITE_API_URL = '/api/v1/employees/invite'
+    ANSWER_API_URL = '/api/v1/employees/invitation'
 
     def setUp(self) -> None:
         self.faker = Faker()
@@ -55,6 +56,14 @@ class TestEmployee(ParametrizedTestCase):
         token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
         return self.client.post(
             self.INVITE_API_URL,
+            json=payload,
+            headers={'X-Apigateway-Api-Userinfo': token_encoded},
+        )
+
+    def call_answer_api(self, payload: dict[str, Any], token: dict[str, str]) -> TestResponse:
+        token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
+        return self.client.post(
+            self.ANSWER_API_URL,
             json=payload,
             headers={'X-Apigateway-Api-Userinfo': token_encoded},
         )
@@ -294,7 +303,9 @@ class TestEmployee(ParametrizedTestCase):
         resp_data = json.loads(resp.get_data())
         self.assertEqual(resp_data, {'code': 400, 'message': 'Invalid page_number. Page number must be 1 or greater.'})
 
-    def setup_employee(self, client_id: str | None = None) -> Employee:
+    def setup_employee(
+        self, client_id: str | None = None, invitation_status: InvitationStatus | None = InvitationStatus.UNINVITED
+    ) -> Employee:
         return Employee(
             id=cast(str, self.faker.uuid4()),
             client_id=client_id,
@@ -302,7 +313,7 @@ class TestEmployee(ParametrizedTestCase):
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
             role=self.faker.random_element(list(Role)),
-            invitation_status=InvitationStatus.UNINVITED,
+            invitation_status=InvitationStatus.UNINVITED if invitation_status is None else invitation_status,
             invitation_date=datetime.now(UTC).replace(microsecond=0),
         )
 
@@ -406,3 +417,99 @@ class TestEmployee(ParametrizedTestCase):
         self.assertEqual(resp.status_code, 404)
         resp_data = json.loads(resp.get_data())
         self.assertEqual(resp_data['message'], 'Employee not found.')
+
+    def test_accept_invitation_success(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        token = self.gen_token_employee(client_id=client_id, role=Role.AGENT, assigned=True)
+        employee = self.setup_employee(client_id=client_id, invitation_status=InvitationStatus.PENDING)
+        payload = {'response': InvitationResponse.ACCEPTED.value}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get).return_value = employee
+        cast(Mock, employee_repo_mock.delete).return_value = None
+        cast(Mock, employee_repo_mock.create).return_value = None
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_answer_api(payload, token)
+
+        self.assertEqual(resp.status_code, 201)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Invitation accepted successfully')
+        self.assertEqual(resp_data['employee']['invitationStatus'], InvitationStatus.ACCEPTED.value)
+
+    def test_decline_invitation_success(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.AGENT, assigned=True)
+        employee = self.setup_employee(client_id=token['cid'], invitation_status=InvitationStatus.PENDING)
+        payload = {'response': InvitationResponse.DECLINED.value}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get).return_value = employee
+        cast(Mock, employee_repo_mock.delete).return_value = None
+        cast(Mock, employee_repo_mock.create).return_value = None
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_answer_api(payload, token)
+
+        self.assertEqual(resp.status_code, 201)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Invitation declined successfully')
+        self.assertEqual(resp_data['employee']['invitationStatus'], InvitationStatus.UNINVITED.value)
+        self.assertIsNone(resp_data['employee']['clientId'])
+
+    def test_invitation_not_found(self) -> None:
+        token = self.gen_token_employee(client_id=None, role=Role.AGENT, assigned=True)
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get).return_value = None
+        payload = {'response': InvitationResponse.ACCEPTED.value}
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_answer_api(payload, token)
+
+        self.assertEqual(resp.status_code, 404)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Employee not found')
+
+    def test_invitation_already_accepted(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.AGENT, assigned=True)
+        employee = self.setup_employee(client_id=token['cid'], invitation_status=InvitationStatus.ACCEPTED)
+        payload = {'response': InvitationResponse.ACCEPTED.value}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_answer_api(payload, token)
+
+        self.assertEqual(resp.status_code, 409)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'You are already linked to the organization')
+
+    def test_no_invitation_to_respond(self) -> None:
+        token = self.gen_token_employee(client_id=None, role=Role.AGENT, assigned=True)
+        employee = self.setup_employee(client_id=None, invitation_status=InvitationStatus.UNINVITED)
+        payload = {'response': InvitationResponse.ACCEPTED.value}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_answer_api(payload, token)
+
+        self.assertEqual(resp.status_code, 404)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'No invitation to respond to')
+
+    def test_invalid_response(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.AGENT, assigned=True)
+        employee = self.setup_employee(client_id=token['cid'], invitation_status=InvitationStatus.PENDING)
+        payload = {'response': 'INVALID_RESPONSE'}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_answer_api(payload, token)
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data['message'], 'Invalid value for response: Must be one of: accepted, declined.')
