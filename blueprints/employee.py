@@ -12,13 +12,15 @@ from marshmallow import ValidationError
 from passlib.handlers.pbkdf2 import pbkdf2_sha256
 
 from containers import Container
-from models import Employee, InvitationStatus, Role, InvitationResponse
+from models import Employee, InvitationResponse, InvitationStatus, Role
 from repositories import EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
 from .util import class_route, error_response, json_response, requires_token, validation_error_response
 
 blp = Blueprint('Employees', __name__)
+
+JSON_VALIDATION_ERROR = 'Request body must be a JSON object.'
 
 
 def employee_to_dict(employee: Employee) -> dict[str, Any]:
@@ -37,8 +39,7 @@ def employee_to_dict(employee: Employee) -> dict[str, Any]:
 @dataclass
 class RegisterEmployeeBody:
     name: str = field(metadata={'validate': marshmallow.validate.Length(min=1, max=60)})
-    email: str = field(
-        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
     password: str = field(metadata={'validate': marshmallow.validate.Length(min=8)})
     role: str = field(
         metadata={'validate': marshmallow.validate.OneOf([Role.ADMIN.value, Role.ANALYST.value, Role.AGENT.value])}
@@ -48,14 +49,16 @@ class RegisterEmployeeBody:
 # Invitation validation class
 @dataclass
 class InviteEmployeeBody:
-    email: str = field(
-        metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
 
 
 @dataclass
 class ResponseInvitationBody:
-    response: str = field(metadata={
-        'response': marshmallow.validate.OneOf([InvitationResponse.ACCEPTED.value, InvitationResponse.DECLINED.value])})
+    response: str = field(
+        metadata={
+            'response': marshmallow.validate.OneOf([InvitationResponse.ACCEPTED.value, InvitationResponse.DECLINED.value])
+        }
+    )
 
 
 @class_route(blp, '/api/v1/employees/me')
@@ -63,8 +66,7 @@ class EmployeeInfo(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
 
         if employee is None:
@@ -83,7 +85,7 @@ class EmployeeRegister(MethodView):
         req_json = request.get_json(silent=True)
 
         if req_json is None:
-            return error_response('Request body must be a JSON object.', 400)
+            return error_response(JSON_VALIDATION_ERROR, 400)
 
         # Validate request body
         try:
@@ -117,8 +119,7 @@ class EmployeeList(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(self, token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
+    def get(self, token: dict[str, Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]) -> Response:
         # Verify if the user has administrator permissions
         if token['role'] != Role.ADMIN.value:
             return error_response('Forbidden: You do not have access to this resource.', 403)
@@ -165,21 +166,20 @@ class EmployeeInvite(MethodView):
 
     @requires_token
     def post(
-            self,
-            token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+        self,
+        token: dict[str, Any],
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
     ) -> Response:
         # Validate if the requester has admin privileges and is linked to a company
         if token['role'] != Role.ADMIN.value or token['cid'] is None:
-            return error_response('Forbidden: You do not have access to this resource or must be linked to a company.',
-                                  403)
+            return error_response('Forbidden: You do not have access to this resource or must be linked to a company.', 403)
 
         # Parse request body
         invite_schema = marshmallow_dataclass.class_schema(InviteEmployeeBody)()
         req_json = request.get_json(silent=True)
 
         if req_json is None:
-            return error_response('Request body must be a JSON object.', 400)
+            return error_response(JSON_VALIDATION_ERROR, 400)
 
         try:
             data: InviteEmployeeBody = invite_schema.load(req_json)
@@ -224,18 +224,17 @@ class EmployeeInvite(MethodView):
 
 @class_route(blp, '/api/v1/employees/invitation')
 class EmployeeInvitationResponse(MethodView):
-
     @requires_token
     def post(
-            self,
-            token: dict[str, Any],
-            employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+        self,
+        token: dict[str, Any],
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
     ) -> Response:
         respond_schema = marshmallow_dataclass.class_schema(ResponseInvitationBody)()
         req_json = request.get_json(silent=True)
 
         if req_json is None:
-            return error_response('Request body must be a JSON object.', 400)
+            return error_response(JSON_VALIDATION_ERROR, 400)
 
         try:
             data: ResponseInvitationBody = respond_schema.load(req_json)
@@ -250,15 +249,15 @@ class EmployeeInvitationResponse(MethodView):
         error_code = None
 
         if employee is None:
-            error_message = 'Employee not found'
-            error_code = 404
+            return error_response('Employee not found', 404)
+
         if employee.client_id is None:
             error_message = 'No invitation to respond to'
             error_code = 404
         if employee.invitation_status == InvitationStatus.ACCEPTED:
             error_message = 'You are already linked to the organization'
             error_code = 409
-        if error_message:
+        if error_message and error_code:
             return error_response(error_message, error_code)
 
         # Process the invitation response
