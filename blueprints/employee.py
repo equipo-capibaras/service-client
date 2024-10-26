@@ -283,3 +283,38 @@ class EmployeeInvitationResponse(MethodView):
             },
             201,
         )
+
+
+@class_route(blp, '/api/v1/employees/detail')
+class EmployeeDetail(MethodView):
+    init_every_request = False
+
+    @requires_token
+    def get(
+        self,
+        token: dict[str, Any],
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+    ) -> Response:
+        # validate if the requester has admin privileges
+        if token['role'] != Role.ADMIN.value:
+            return error_response('Forbidden: You do not have access to this resource.', 403)
+
+        # Parse request body
+        invite_schema = marshmallow_dataclass.class_schema(InviteEmployeeBody)()
+        req_json = request.get_json(silent=True)
+
+        if req_json is None:
+            return error_response(JSON_VALIDATION_ERROR, 400)
+
+        try:
+            data: InviteEmployeeBody = invite_schema.load(req_json)
+        except ValidationError as err:
+            return validation_error_response(err)
+
+        # Find employee by email
+        employee = employee_repo.find_by_email(data.email)
+
+        if employee is None:
+            return error_response('Employee not found.', 404)
+
+        return json_response(employee_to_dict(employee), 200)

@@ -20,6 +20,7 @@ class TestEmployee(ParametrizedTestCase):
     LIST_API_URL = '/api/v1/employees'
     INVITE_API_URL = '/api/v1/employees/invite'
     ANSWER_API_URL = '/api/v1/employees/invitation'
+    DETAIL_API_URL = '/api/v1/employees/detail'
 
     def setUp(self) -> None:
         self.faker = Faker()
@@ -64,6 +65,14 @@ class TestEmployee(ParametrizedTestCase):
         token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
         return self.client.post(
             self.ANSWER_API_URL,
+            json=payload,
+            headers={'X-Apigateway-Api-Userinfo': token_encoded},
+        )
+
+    def call_detail_api(self, payload: dict[str, Any], token: dict[str, str]) -> TestResponse:
+        token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
+        return self.client.get(
+            self.DETAIL_API_URL,
             json=payload,
             headers={'X-Apigateway-Api-Userinfo': token_encoded},
         )
@@ -513,3 +522,64 @@ class TestEmployee(ParametrizedTestCase):
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
         self.assertEqual(resp_data['message'], 'Invalid value for response: Must be one of: accepted, declined.')
+
+    def test_employee_detail_success(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=True)
+        employee = self.setup_employee()
+        payload = {'email': employee.email}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.find_by_email).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_detail_api(payload, token)
+
+        self.assertEqual(resp.status_code, 200)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['id'], employee.id)
+        self.assertEqual(resp_data['clientId'], employee.client_id)
+        self.assertEqual(resp_data['name'], employee.name)
+        self.assertEqual(resp_data['email'], employee.email)
+        self.assertEqual(resp_data['role'], employee.role.value)
+        self.assertEqual(resp_data['invitationStatus'], employee.invitation_status.value)
+
+    def test_employee_detail_not_found(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=True)
+        payload = {'email': self.faker.email()}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.find_by_email).return_value = None
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_detail_api(payload, token)
+
+        self.assertEqual(resp.status_code, 404)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data, {'code': 404, 'message': 'Employee not found.'})
+
+    def test_employee_detail_forbidden(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.AGENT, assigned=True)
+        payload = {'email': self.faker.email()}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_detail_api(payload, token)
+
+        self.assertEqual(resp.status_code, 403)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data, {'code': 403, 'message': 'Forbidden: You do not have access to this resource.'})
+
+    def test_employee_detail_invalid_body(self) -> None:
+        token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=True)
+        invalid_payload = {'email': 'invalid-email'}
+
+        employee_repo_mock = Mock(EmployeeRepository)
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_detail_api(invalid_payload, token)
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+        self.assertIn('Invalid value for email', resp_data['message'])
