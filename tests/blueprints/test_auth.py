@@ -112,9 +112,9 @@ class TestAuth(ParametrizedTestCase):
     def test_login_valid_credentials(self, *, assigned: bool) -> None:
         password = self.faker.password()
         invitation_status = (
-            self.faker.random_element([InvitationStatus.ACCEPTED, InvitationStatus.UNINVITED])
+            InvitationStatus.ACCEPTED
             if assigned
-            else InvitationStatus.UNINVITED
+            else self.faker.random_element([InvitationStatus.UNINVITED, InvitationStatus.PENDING])
         )
 
         employee = Employee(
