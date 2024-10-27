@@ -290,7 +290,7 @@ class EmployeeDetail(MethodView):
     init_every_request = False
 
     @requires_token
-    def get(
+    def post(
         self,
         token: dict[str, Any],
         employee_repo: EmployeeRepository = Provide[Container.employee_repo],
