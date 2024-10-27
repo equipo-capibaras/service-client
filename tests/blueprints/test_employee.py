@@ -71,7 +71,7 @@ class TestEmployee(ParametrizedTestCase):
 
     def call_detail_api(self, payload: dict[str, Any], token: dict[str, str]) -> TestResponse:
         token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
-        return self.client.get(
+        return self.client.post(
             self.DETAIL_API_URL,
             json=payload,
             headers={'X-Apigateway-Api-Userinfo': token_encoded},
