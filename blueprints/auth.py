@@ -11,7 +11,7 @@ from marshmallow import ValidationError
 from passlib.hash import pbkdf2_sha256
 
 from containers import Container
-from models import Employee
+from models import Employee, InvitationStatus
 from repositories import EmployeeRepository
 
 from .util import class_route, error_response, json_response, requires_token, validation_error_response
@@ -45,13 +45,15 @@ def issue_token(
     time_issued = datetime.datetime.now(datetime.UTC)
     time_expiry = time_issued + datetime.timedelta(minutes=15)
 
+    assigned = employee.client_id is not None and employee.invitation_status == InvitationStatus.ACCEPTED
+
     payload: JWTPayload = {
         'iss': jwt_issuer,
         'sub': employee.id,
         'cid': employee.client_id,
         'email': employee.email,
         'role': employee.role.value,
-        'aud': ('unassigned_' if employee.client_id is None else '') + employee.role.value,
+        'aud': ('' if assigned else 'unassigned_') + employee.role.value,
         'iat': int(time_issued.timestamp()),
         'exp': int(time_expiry.timestamp()),
     }
