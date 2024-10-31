@@ -22,6 +22,7 @@ class TestEmployee(ParametrizedTestCase):
     INVITE_API_URL = '/api/v1/employees/invite'
     ANSWER_API_URL = '/api/v1/employees/invitation'
     DETAIL_API_URL = '/api/v1/employees/detail'
+    RANDOM_AGENT_URL = '/api/v1/random/{client_id}/agent'
 
     def setUp(self) -> None:
         self.faker = Faker()
@@ -77,6 +78,9 @@ class TestEmployee(ParametrizedTestCase):
             json=payload,
             headers={'X-Apigateway-Api-Userinfo': token_encoded},
         )
+
+    def call_get_random_agent(self, client_id: str) -> TestResponse:
+        return self.client.get(self.RANDOM_AGENT_URL.format(client_id=client_id))
 
     @parametrize(
         'api_method',
@@ -625,3 +629,33 @@ class TestEmployee(ParametrizedTestCase):
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
         self.assertIn('Invalid value for email', resp_data['message'])
+
+    def test_get_random_agent_success(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        employee = self.setup_employee(client_id=client_id)
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get_random_agent).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_get_random_agent(client_id)
+
+        self.assertEqual(resp.status_code, 200)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['id'], employee.id)
+        self.assertEqual(resp_data['clientId'], employee.client_id)
+        self.assertEqual(resp_data['name'], employee.name)
+        self.assertEqual(resp_data['email'], employee.email)
+        self.assertEqual(resp_data['role'], employee.role.value)
+
+    def test_get_random_agent_not_found(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get_random_agent).return_value = None
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_get_random_agent(client_id)
+
+        self.assertEqual(resp.status_code, 404)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data, {'code': 404, 'message': 'No agents found'})
