@@ -342,3 +342,24 @@ class EmployeeDetail(MethodView):
             return error_response(EMPLOYEE_NOT_FOUND_ERROR, 404)
 
         return json_response(employee_to_dict(employee), 200)
+
+
+# Internal only
+@class_route(blp, '/api/v1/random/<client_id>/agent')
+class GetRandomAgent(MethodView):
+    init_every_request = False
+
+    def get(
+        self,
+        client_id: str,
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+    ) -> Response:
+        if not is_valid_uuid4(client_id):
+            return error_response('Invalid client ID.', 400)
+
+        agent = employee_repo.get_random_agent(client_id)
+
+        if agent is None:
+            return error_response('No agents found', 404)
+
+        return json_response(employee_to_dict(agent), 200)
