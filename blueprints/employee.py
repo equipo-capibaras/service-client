@@ -360,6 +360,6 @@ class GetRandomAgent(MethodView):
         agent = employee_repo.get_random_agent(client_id)
 
         if agent is None:
-            return error_response(EMPLOYEE_NOT_FOUND_ERROR, 404)
+            return error_response('No agents found', 404)
 
         return json_response(employee_to_dict(agent), 200)
