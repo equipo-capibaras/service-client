@@ -3,13 +3,14 @@ import logging
 from collections.abc import Generator
 from dataclasses import asdict
 from enum import Enum
+from random import random, choice
 from typing import Any, cast
 
 import dacite
 from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 from google.cloud.firestore import transactional
-from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Query, Transaction
+from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Query, Transaction, FieldFilter
 from google.cloud.firestore_v1.base_aggregation import AggregationResult
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -130,3 +131,25 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         employees_ref = cast(CollectionReference, client_ref.collection('employees'))
         result = cast(AggregationResult, employees_ref.count().get()[0][0])  # type: ignore[no-untyped-call]
         return int(result.value)
+
+    def get_agents_by_client(self, client_id: str) -> list[Employee]:
+        # Obtain a reference to the client's collection of employees
+        employees_ref = cast(CollectionReference, self.db.collection('clients').document(client_id).collection('employees'))
+
+        # Query the employees collection for agents
+        query = employees_ref.where('role', '==', 'agent')
+        docs = query.stream()
+
+        # Convert the documents to Employee objects
+        agents = [self.doc_to_employee(doc) for doc in docs]
+
+        return agents
+
+    def get_random_agent(self, client_id: str) -> Employee | None:
+        agents = self.get_agents_by_client(client_id)
+
+        # If there are no agents, return None
+        if not agents:
+            return None
+
+        return choice(agents)

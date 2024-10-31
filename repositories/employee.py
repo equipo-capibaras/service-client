@@ -24,3 +24,9 @@ class EmployeeRepository:
 
     def count(self, client_id: str) -> int:
         raise NotImplementedError  # pragma: no cover
+
+    def get_agents_by_client(self, client_id: str) -> list[Employee]:
+        raise NotImplementedError # pragma: no cover
+
+    def get_random_agent(self, client_id: str) -> Employee | None:
+        raise NotImplementedError # pragma: no cover
