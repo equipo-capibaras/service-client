@@ -1,16 +1,16 @@
 import contextlib
 import logging
+import secrets
 from collections.abc import Generator
 from dataclasses import asdict
 from enum import Enum
-from random import random, choice
 from typing import Any, cast
 
 import dacite
 from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import Client as FirestoreClient  # type: ignore[import-untyped]
 from google.cloud.firestore import transactional
-from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Query, Transaction, FieldFilter
+from google.cloud.firestore_v1 import CollectionReference, DocumentReference, DocumentSnapshot, Query, Transaction
 from google.cloud.firestore_v1.base_aggregation import AggregationResult
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -140,10 +140,7 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         query = employees_ref.where('role', '==', 'agent')
         docs = query.stream()
 
-        # Convert the documents to Employee objects
-        agents = [self.doc_to_employee(doc) for doc in docs]
-
-        return agents
+        return [self.doc_to_employee(doc) for doc in docs]
 
     def get_random_agent(self, client_id: str) -> Employee | None:
         agents = self.get_agents_by_client(client_id)
@@ -152,4 +149,4 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         if not agents:
             return None
 
-        return choice(agents)
+        return secrets.choice(agents)
