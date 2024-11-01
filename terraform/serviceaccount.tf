@@ -57,3 +57,12 @@ data "google_service_account" "backup" {
 
   depends_on = [ google_project_service.iam ]
 }
+
+# Retrieves the service account of the registroapp microservice.
+# This is defined as part of the registroapp microservice
+# This service account is given permissions to access this microservice
+data "google_service_account" "registroapp" {
+  account_id   = "registroapp"
+
+  depends_on = [ google_project_service.iam ]
+}
