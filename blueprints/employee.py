@@ -16,11 +16,12 @@ from models import Employee, InvitationResponse, InvitationStatus, Role
 from repositories import EmployeeRepository
 from repositories.errors import DuplicateEmailError
 
-from .util import class_route, error_response, json_response, requires_token, validation_error_response
+from .util import class_route, error_response, is_valid_uuid4, json_response, requires_token, validation_error_response
 
 blp = Blueprint('Employees', __name__)
 
 JSON_VALIDATION_ERROR = 'Request body must be a JSON object.'
+EMPLOYEE_NOT_FOUND_ERROR = 'Employee not found.'
 
 
 def employee_to_dict(employee: Employee) -> dict[str, Any]:
@@ -70,7 +71,30 @@ class EmployeeInfo(MethodView):
         employee = employee_repo.get(employee_id=token['sub'], client_id=token['cid'])
 
         if employee is None:
-            return error_response('Employee not found', 404)
+            return error_response(EMPLOYEE_NOT_FOUND_ERROR, 404)
+
+        return json_response(employee_to_dict(employee), 200)
+
+
+# Internal only
+@class_route(blp, '/api/v1/employees/<client_id>/<employee_id>')
+class RetrieveEmployee(MethodView):
+    init_every_request = False
+
+    def get(
+        self, client_id: str, employee_id: str, employee_repo: EmployeeRepository = Provide[Container.employee_repo]
+    ) -> Response:
+        if not is_valid_uuid4(client_id):
+            return error_response('Invalid client ID.', 400)
+
+        if not is_valid_uuid4(employee_id):
+            return error_response('Invalid employee ID.', 400)
+
+        cid = None if client_id == '00000000-0000-0000-0000-000000000000' else client_id
+        employee = employee_repo.get(employee_id=employee_id, client_id=cid)
+
+        if employee is None:
+            return error_response(EMPLOYEE_NOT_FOUND_ERROR, 404)
 
         return json_response(employee_to_dict(employee), 200)
 
@@ -190,7 +214,7 @@ class EmployeeInvite(MethodView):
         employee = employee_repo.find_by_email(data.email)
 
         if employee is None:
-            return error_response('Employee not found.', 404)
+            return error_response(EMPLOYEE_NOT_FOUND_ERROR, 404)
 
         # Validate employee state
         error_message = None
@@ -249,7 +273,7 @@ class EmployeeInvitationResponse(MethodView):
         error_code = None
 
         if employee is None:
-            return error_response('Employee not found', 404)
+            return error_response(EMPLOYEE_NOT_FOUND_ERROR, 404)
 
         if employee.client_id is None:
             error_message = 'No invitation to respond to'
@@ -315,6 +339,27 @@ class EmployeeDetail(MethodView):
         employee = employee_repo.find_by_email(data.email)
 
         if employee is None:
-            return error_response('Employee not found.', 404)
+            return error_response(EMPLOYEE_NOT_FOUND_ERROR, 404)
 
         return json_response(employee_to_dict(employee), 200)
+
+
+# Internal only
+@class_route(blp, '/api/v1/random/<client_id>/agent')
+class GetRandomAgent(MethodView):
+    init_every_request = False
+
+    def get(
+        self,
+        client_id: str,
+        employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+    ) -> Response:
+        if not is_valid_uuid4(client_id):
+            return error_response('Invalid client ID.', 400)
+
+        agent = employee_repo.get_random_agent(client_id)
+
+        if agent is None:
+            return error_response('No agents found', 404)
+
+        return json_response(employee_to_dict(agent), 200)

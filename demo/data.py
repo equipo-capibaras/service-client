@@ -218,7 +218,7 @@ employees_gigatel = [
 # Unassigned
 employees_unassigned = [
     Employee(
-        id='e7ae844f-ae95-4d04-8d45-0a155ce58bcc',
+        id='48b93bd9-492d-4b05-b38d-6ee4d2d83728',
         client_id=None,
         name='Sofia Martinez Lopez',
         email='sofia@gigatel.co',
@@ -228,7 +228,7 @@ employees_unassigned = [
         invitation_date=datetime(2024, 10, 9, 8, 25, 51, tzinfo=UTC),
     ),
     Employee(
-        id='0abad006-921c-4e09-b2a6-10713b71571f',
+        id='e658bffa-d2a0-4ed4-9863-bbcd8939d978',
         client_id=None,
         name='Lucia Gonzalez Fernandez',
         email='lucia@globalcom.ec',

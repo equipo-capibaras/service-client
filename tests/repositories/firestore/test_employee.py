@@ -354,3 +354,98 @@ class TestEmployee(ParametrizedTestCase):
         # Verify employee is deleted
         doc = employee_ref.get()
         self.assertFalse(doc.exists)
+
+    def test_get_agents_by_client_no_agents(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        # No employees added to this client
+        agents = self.repo.get_agents_by_client(client_id)
+
+        # Assert no agents found
+        self.assertEqual(agents, [])
+
+    def test_get_agents_by_client_with_agents(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        # Add multiple agents
+        agents = []
+        for _ in range(3):
+            agent = self.gen_add_employees(1, client_id)[0]
+            agent.role = Role.AGENT
+            agent.invitation_status = InvitationStatus.ACCEPTED
+            agent_ref = self.client.collection('clients').document(client_id).collection('employees').document(agent.id)
+            agent_ref.set(asdict(agent))
+            agents.append(agent)
+
+        # Get agents from repository
+        agents_db = self.repo.get_agents_by_client(client_id)
+
+        # Assert that all added agents are returned
+        self.assertEqual(len(agents_db), len(agents))
+        self.assertTrue(all(agent in agents for agent in agents_db))
+
+    def test_get_agents_by_client_no_matching_role(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        # Add employees with different roles, but not agents
+        for _ in range(3):
+            employee = self.gen_add_employees(1, client_id)[0]
+            employee.role = Role.ADMIN  # No agent roles
+            employee_ref = self.client.collection('clients').document(client_id).collection('employees').document(employee.id)
+            employee_ref.set(asdict(employee))
+
+        # Get agents from repository
+        agents_db = self.repo.get_agents_by_client(client_id)
+
+        # Assert that no agents are found
+        self.assertEqual(agents_db, [])
+
+    def test_get_random_agent_no_agents(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        # No employees added to this client
+        agent = self.repo.get_random_agent(client_id)
+
+        # Assert no agent found
+        self.assertIsNone(agent)
+
+    def test_get_random_agent_single_agent(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        # Add a single agent
+        agent = self.gen_add_employees(1, client_id)[0]
+        agent.role = Role.AGENT
+        agent.invitation_status = InvitationStatus.ACCEPTED
+        agent_ref = self.client.collection('clients').document(client_id).collection('employees').document(agent.id)
+        agent_ref.set(asdict(agent))
+
+        # Get random agent
+        agent_db = self.repo.get_random_agent(client_id)
+
+        # Assert the returned agent is the same as the only one added
+        self.assertIsNotNone(agent_db)
+        self.assertEqual(agent_db, agent)
+
+    def test_get_random_agent_multiple_agents(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        self.client.collection('clients').document(client_id).set({})
+
+        # Add multiple agents
+        agents = []
+        for _ in range(5):
+            agent = self.gen_add_employees(1, client_id)[0]
+            agent.role = Role.AGENT
+            agent_ref = self.client.collection('clients').document(client_id).collection('employees').document(agent.id)
+            agent_ref.set(asdict(agent))
+            agents.append(agent)
+
+        # Get random agent multiple times to test randomness
+        for _ in range(10):
+            agent_db = self.repo.get_random_agent(client_id)
+            self.assertIsNotNone(agent_db)
+            self.assertIn(agent_db, agents)

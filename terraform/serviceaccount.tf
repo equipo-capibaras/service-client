@@ -40,11 +40,29 @@ data "google_service_account" "user" {
   depends_on = [ google_project_service.iam ]
 }
 
+# Retrieves the service account of the incidentquery microservice.
+# This is defined as part of the incidentquery microservice
+# This service account is given permissions to access this microservice
+data "google_service_account" "incidentquery" {
+  account_id   = "incidentquery"
+
+  depends_on = [ google_project_service.iam ]
+}
+
 # Retrieves the backup service account.
 # This is defined as part of the core infrastructure and is shared across all microservices.
 # This service account is used by the Cloud Scheduler to do database backups.
 data "google_service_account" "backup" {
   account_id   = "backup"
+
+  depends_on = [ google_project_service.iam ]
+}
+
+# Retrieves the service account of the registroapp microservice.
+# This is defined as part of the registroapp microservice
+# This service account is given permissions to access this microservice
+data "google_service_account" "registroapp" {
+  account_id   = "registroapp"
 
   depends_on = [ google_project_service.iam ]
 }

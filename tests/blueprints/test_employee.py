@@ -10,6 +10,7 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 from werkzeug.test import TestResponse
 
 from app import create_app
+from blueprints.employee import EMPLOYEE_NOT_FOUND_ERROR
 from models import Employee, InvitationResponse, InvitationStatus, Role
 from repositories import DuplicateEmailError, EmployeeRepository
 
@@ -21,6 +22,7 @@ class TestEmployee(ParametrizedTestCase):
     INVITE_API_URL = '/api/v1/employees/invite'
     ANSWER_API_URL = '/api/v1/employees/invitation'
     DETAIL_API_URL = '/api/v1/employees/detail'
+    RANDOM_AGENT_URL = '/api/v1/random/{client_id}/agent'
 
     def setUp(self) -> None:
         self.faker = Faker()
@@ -77,7 +79,17 @@ class TestEmployee(ParametrizedTestCase):
             headers={'X-Apigateway-Api-Userinfo': token_encoded},
         )
 
-    def test_info_employee_not_found(self) -> None:
+    def call_get_random_agent(self, client_id: str) -> TestResponse:
+        return self.client.get(self.RANDOM_AGENT_URL.format(client_id=client_id))
+
+    @parametrize(
+        'api_method',
+        [
+            ('info',),
+            ('get',),
+        ],
+    )
+    def test_info_employee_not_found(self, api_method: str) -> None:
         token = self.gen_token_employee(
             client_id=cast(str, self.faker.uuid4()),
             role=self.faker.random_element(list(Role)),
@@ -88,21 +100,26 @@ class TestEmployee(ParametrizedTestCase):
 
         cast(Mock, employee_repo_mock.get).return_value = None
         with self.app.container.employee_repo.override(employee_repo_mock):
-            resp = self.call_info_api_employee(token)
+            if api_method == 'info':
+                resp = self.call_info_api_employee(token)
+            else:
+                resp = self.client.get(f'/api/v1/employees/{token["cid"]}/{token["sub"]}')
 
         self.assertEqual(resp.status_code, 404)
         resp_data = json.loads(resp.get_data())
 
-        self.assertEqual(resp_data, {'code': 404, 'message': 'Employee not found'})
+        self.assertEqual(resp_data, {'code': 404, 'message': EMPLOYEE_NOT_FOUND_ERROR})
 
     @parametrize(
-        'assigned',
+        ['assigned', 'api_method'],
         [
-            (True,),
-            (False,),
+            (True, 'info'),
+            (False, 'info'),
+            (True, 'get'),
+            (False, 'get'),
         ],
     )
-    def test_info_employee_found(self, *, assigned: bool) -> None:
+    def test_info_employee_found(self, *, assigned: bool, api_method: str) -> None:
         invitation_status = (
             self.faker.random_element([InvitationStatus.ACCEPTED, InvitationStatus.UNINVITED])
             if assigned
@@ -130,7 +147,11 @@ class TestEmployee(ParametrizedTestCase):
 
         cast(Mock, employee_repo_mock.get).return_value = employee
         with self.app.container.employee_repo.override(employee_repo_mock):
-            resp = self.call_info_api_employee(token)
+            if api_method == 'info':
+                resp = self.call_info_api_employee(token)
+            else:
+                cid = token['cid'] or '00000000-0000-0000-0000-000000000000'
+                resp = self.client.get(f'/api/v1/employees/{cid}/{token["sub"]}')
 
         self.assertEqual(resp.status_code, 200)
         resp_data = json.loads(resp.get_data())
@@ -140,6 +161,31 @@ class TestEmployee(ParametrizedTestCase):
         self.assertEqual(resp_data['name'], employee.name)
         self.assertEqual(resp_data['email'], employee.email)
         self.assertEqual(resp_data['role'], employee.role)
+
+    @parametrize(
+        ['param'],
+        [
+            ('client_id',),
+            ('employee_id',),
+        ],
+    )
+    def test_get_employee_invalid(self, param: str) -> None:
+        client_id = self.faker.word() if param == 'client_id' else cast(str, self.faker.uuid4())
+        employee_id = self.faker.word() if param == 'employee_id' else cast(str, self.faker.uuid4())
+
+        employee_repo_mock = Mock(EmployeeRepository)
+
+        cast(Mock, employee_repo_mock.get).return_value = None
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.client.get(f'/api/v1/employees/{client_id}/{employee_id}')
+
+        cast(Mock, employee_repo_mock.get).assert_not_called()
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 400)
+        self.assertEqual(resp_data['message'], 'Invalid client ID.' if param == 'client_id' else 'Invalid employee ID.')
 
     def test_register_employee_success(self) -> None:
         employee_repo_mock = Mock(EmployeeRepository)
@@ -425,7 +471,7 @@ class TestEmployee(ParametrizedTestCase):
 
         self.assertEqual(resp.status_code, 404)
         resp_data = json.loads(resp.get_data())
-        self.assertEqual(resp_data['message'], 'Employee not found.')
+        self.assertEqual(resp_data['message'], EMPLOYEE_NOT_FOUND_ERROR)
 
     def test_accept_invitation_success(self) -> None:
         client_id = cast(str, self.faker.uuid4())
@@ -476,7 +522,7 @@ class TestEmployee(ParametrizedTestCase):
 
         self.assertEqual(resp.status_code, 404)
         resp_data = json.loads(resp.get_data())
-        self.assertEqual(resp_data['message'], 'Employee not found')
+        self.assertEqual(resp_data['message'], EMPLOYEE_NOT_FOUND_ERROR)
 
     def test_invitation_already_accepted(self) -> None:
         token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.AGENT, assigned=True)
@@ -556,7 +602,7 @@ class TestEmployee(ParametrizedTestCase):
 
         self.assertEqual(resp.status_code, 404)
         resp_data = json.loads(resp.get_data())
-        self.assertEqual(resp_data, {'code': 404, 'message': 'Employee not found.'})
+        self.assertEqual(resp_data, {'code': 404, 'message': EMPLOYEE_NOT_FOUND_ERROR})
 
     def test_employee_detail_forbidden(self) -> None:
         token = self.gen_token_employee(client_id=cast(str, self.faker.uuid4()), role=Role.AGENT, assigned=True)
@@ -583,3 +629,33 @@ class TestEmployee(ParametrizedTestCase):
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
         self.assertIn('Invalid value for email', resp_data['message'])
+
+    def test_get_random_agent_success(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        employee = self.setup_employee(client_id=client_id)
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get_random_agent).return_value = employee
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_get_random_agent(client_id)
+
+        self.assertEqual(resp.status_code, 200)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['id'], employee.id)
+        self.assertEqual(resp_data['clientId'], employee.client_id)
+        self.assertEqual(resp_data['name'], employee.name)
+        self.assertEqual(resp_data['email'], employee.email)
+        self.assertEqual(resp_data['role'], employee.role.value)
+
+    def test_get_random_agent_not_found(self) -> None:
+        client_id = cast(str, self.faker.uuid4())
+        employee_repo_mock = Mock(EmployeeRepository)
+        cast(Mock, employee_repo_mock.get_random_agent).return_value = None
+
+        with self.app.container.employee_repo.override(employee_repo_mock):
+            resp = self.call_get_random_agent(client_id)
+
+        self.assertEqual(resp.status_code, 404)
+        resp_data = json.loads(resp.get_data())
+        self.assertEqual(resp_data, {'code': 404, 'message': 'No agents found'})
