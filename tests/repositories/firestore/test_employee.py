@@ -440,6 +440,7 @@ class TestEmployee(ParametrizedTestCase):
         for _ in range(5):
             agent = self.gen_add_employees(1, client_id)[0]
             agent.role = Role.AGENT
+            agent.invitation_status = InvitationStatus.ACCEPTED
             agent_ref = self.client.collection('clients').document(client_id).collection('employees').document(agent.id)
             agent_ref.set(asdict(agent))
             agents.append(agent)
