@@ -156,7 +156,9 @@ class RetrieveClient(MethodView):
 
         client = client_repo.get(client_id)
 
+        include_plan = request.args.get('include_plan', 'false').lower() == 'true'
+
         if client is None:
             return error_response('Client not found.', 404)
 
-        return json_response(client_to_dict(client), 200)
+        return json_response(client_to_dict(client, include_plan=include_plan), 200)
