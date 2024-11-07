@@ -65,6 +65,7 @@ class CreateClient(MethodView):
         token: dict[str, Any],
         client_repo: ClientRepository = Provide[Container.client_repo],
         employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+        domain: str = Provide[Container.config.domain.required()],
     ) -> Response:
         client_schema = marshmallow_dataclass.class_schema(RegisterClientBody)()
         req_json = request.get_json(silent=True)
@@ -81,7 +82,7 @@ class CreateClient(MethodView):
         client = Client(
             id=str(uuid.uuid4()),
             name=data.name,
-            email_incidents=(data.prefixEmailIncidents + '@capibaras.io').lower(),
+            email_incidents=(f'{data.prefixEmailIncidents}@{domain}').lower(),
             plan=None,
         )
 
@@ -148,7 +149,7 @@ class SelectPlan(MethodView):
 
 @dataclass
 class FindByEmailBody:
-    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+    email: str = field(metadata={'validate': [marshmallow.validate.Email()]})
 
 
 # Internal only

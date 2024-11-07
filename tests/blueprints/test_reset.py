@@ -1,6 +1,7 @@
 from typing import cast
 from unittest.mock import Mock
 
+from faker import Faker
 from unittest_parametrize import ParametrizedTestCase, parametrize
 
 import demo
@@ -12,7 +13,13 @@ class TestReset(ParametrizedTestCase):
     API_ENDPOINT = '/api/v1/reset/client'
 
     def setUp(self) -> None:
+        self.faker = Faker()
+
+        self.domain = self.faker.domain_name()
+
         self.app = create_app()
+        self.app.container.config.domain.override(self.domain)
+
         self.client = self.app.test_client()
 
     def tearDown(self) -> None:

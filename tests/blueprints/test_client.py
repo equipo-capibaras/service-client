@@ -22,8 +22,16 @@ class TestClient(ParametrizedTestCase):
 
     def setUp(self) -> None:
         self.faker = Faker()
+
+        self.domain = self.faker.domain_name()
+
         self.app = create_app()
+        self.app.container.config.domain.override(self.domain)
+
         self.client = self.app.test_client()
+
+    def tearDown(self) -> None:
+        self.app.container.unwire()
 
     def gen_token_client(self, *, client_id: str | None, role: Role, assigned: bool = True) -> dict[str, Any]:
         return {
@@ -342,7 +350,7 @@ class TestClient(ParametrizedTestCase):
         cast(Mock, client_repo_mock.create).assert_called_once()
         repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
         self.assertEqual(repo_client.name, register_data['name'])
-        self.assertEqual(repo_client.email_incidents, (register_data['prefixEmailIncidents'] + '@capibaras.io').lower())
+        self.assertEqual(repo_client.email_incidents, f'{register_data["prefixEmailIncidents"]}@{self.domain}'.lower())
 
         self.assertEqual(resp.status_code, 201)
         resp_data = json.loads(resp.get_data())
@@ -378,7 +386,7 @@ class TestClient(ParametrizedTestCase):
         employee_repo_mock = Mock(EmployeeRepository)
         cast(Mock, employee_repo_mock.get).return_value = employee
         cast(Mock, client_repo_mock.create).side_effect = DuplicateEmailError(
-            (register_data['prefixEmailIncidents'] + '@capibaras.io').lower()
+            f'{register_data["prefixEmailIncidents"]}@{self.domain}'.lower()
         )
         with (
             self.app.container.client_repo.override(client_repo_mock),
@@ -389,7 +397,7 @@ class TestClient(ParametrizedTestCase):
         cast(Mock, client_repo_mock.create).assert_called_once()
         repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
         self.assertEqual(repo_client.name, register_data['name'])
-        self.assertEqual(repo_client.email_incidents, (register_data['prefixEmailIncidents'] + '@capibaras.io').lower())
+        self.assertEqual(repo_client.email_incidents, f'{register_data["prefixEmailIncidents"]}@{self.domain}'.lower())
 
         self.assertEqual(resp.status_code, 409)
         resp_data = json.loads(resp.get_data())
