@@ -81,7 +81,7 @@ class CreateClient(MethodView):
         client = Client(
             id=str(uuid.uuid4()),
             name=data.name,
-            email_incidents=data.prefixEmailIncidents + '@capibaras.io',
+            email_incidents=(data.prefixEmailIncidents + '@capibaras.io').lower(),
             plan=None,
         )
 
@@ -142,6 +142,36 @@ class SelectPlan(MethodView):
 
         client.plan = plan
         client_repo.update(client)
+
+        return json_response(client_to_dict(client, include_plan=True), 200)
+
+
+@dataclass
+class FindByEmailBody:
+    email: str = field(metadata={'validate': [marshmallow.validate.Email(), marshmallow.validate.Length(min=1, max=60)]})
+
+
+# Internal only
+@class_route(blp, '/api/v1/clients/detail')
+class FindClient(MethodView):
+    init_every_request = False
+
+    def post(self, client_repo: ClientRepository = Provide[Container.client_repo]) -> Response:
+        # Parse request body
+        find_schema = marshmallow_dataclass.class_schema(FindByEmailBody)()
+        req_json = request.get_json(silent=True)
+        if req_json is None:
+            return error_response('The request body could not be parsed as valid JSON.', 400)
+
+        try:
+            data: FindByEmailBody = find_schema.load(req_json)
+        except ValidationError as err:
+            return validation_error_response(err)
+
+        client = client_repo.find_by_email(data.email.lower())
+
+        if client is None:
+            return error_response('Client not found.', 404)
 
         return json_response(client_to_dict(client, include_plan=True), 200)
 
