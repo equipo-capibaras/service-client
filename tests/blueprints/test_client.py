@@ -18,6 +18,7 @@ from repositories.errors import DuplicateEmailError
 class TestClient(ParametrizedTestCase):
     INFO_API_URL = '/api/v1/clients/me'
     PLAN_API_URL = '/api/v1/clients/me/plan'
+    FIND_API_URL = '/api/v1/clients/detail'
 
     def setUp(self) -> None:
         self.faker = Faker()
@@ -31,6 +32,13 @@ class TestClient(ParametrizedTestCase):
             'role': role.value,
             'aud': ('' if assigned else 'unassigned_') + role.value,
         }
+
+    def call_find_client_api(self, body: dict[str, Any] | str) -> TestResponse:
+        return self.client.post(
+            self.FIND_API_URL,
+            data=body if isinstance(body, str) else json.dumps(body),
+            content_type='application/json',
+        )
 
     def call_info_api_client(self, token: dict[str, str] | None) -> TestResponse:
         if token is None:
@@ -116,6 +124,7 @@ class TestClient(ParametrizedTestCase):
             ('info', Role.ADMIN, True),
             ('info', Role.AGENT, False),
             ('info', Role.ANALYST, False),
+            ('find', None, True),
         ],
     )
     def test_get_client_found(self, *, api_method: str, role: Role | None, expect_plan: bool) -> None:
@@ -128,15 +137,21 @@ class TestClient(ParametrizedTestCase):
 
         client_repo_mock = Mock(ClientRepository)
         cast(Mock, client_repo_mock.get).return_value = client
+        cast(Mock, client_repo_mock.find_by_email).return_value = client
 
         with self.app.container.client_repo.override(client_repo_mock):
             if api_method == 'get':
                 resp = self.client.get(f'/api/v1/clients/{client.id}')
+            elif api_method == 'find':
+                resp = self.call_find_client_api({'email': client.email_incidents})
             else:
                 token = self.gen_token_client(client_id=client.id, role=cast(Role, role))
                 resp = self.call_info_api_client(token)
 
-        cast(Mock, client_repo_mock.get).assert_called_once_with(client.id)
+        if api_method == 'find':
+            cast(Mock, client_repo_mock.find_by_email).assert_called_once_with(client.email_incidents)
+        else:
+            cast(Mock, client_repo_mock.get).assert_called_once_with(client.id)
 
         self.assertEqual(resp.status_code, 200)
         resp_data = json.loads(resp.get_data())
@@ -154,21 +169,29 @@ class TestClient(ParametrizedTestCase):
         [
             ('get',),
             ('info',),
+            ('find',),
         ],
     )
     def test_get_client_missing(self, api_method: str) -> None:
         client_id = cast(str, self.faker.uuid4())
+        client_email = self.faker.email()
         client_repo_mock = Mock(ClientRepository)
         cast(Mock, client_repo_mock.get).return_value = None
+        cast(Mock, client_repo_mock.find_by_email).return_value = None
 
         with self.app.container.client_repo.override(client_repo_mock):
             if api_method == 'get':
                 resp = self.client.get(f'/api/v1/clients/{client_id}')
+            elif api_method == 'find':
+                resp = self.call_find_client_api({'email': client_email})
             else:
                 token = self.gen_token_client(client_id=client_id, role=self.faker.random_element(list(Role)))
                 resp = self.call_info_api_client(token)
 
-        cast(Mock, client_repo_mock.get).assert_called_once_with(client_id)
+        if api_method == 'find':
+            cast(Mock, client_repo_mock.find_by_email).assert_called_once_with(client_email)
+        else:
+            cast(Mock, client_repo_mock.get).assert_called_once_with(client_id)
 
         self.assertEqual(resp.status_code, 404)
         resp_data = json.loads(resp.get_data())
@@ -195,20 +218,29 @@ class TestClient(ParametrizedTestCase):
     def gen_register_data_with_bounds(self, field: str, length: int) -> dict[str, Any]:
         register_data = {
             'name': self.faker.company(),
-            'prefixEmailIncidents': self.faker.email().split('@')[0],
+            'prefixEmailIncidents': self.faker.email().split('@')[0].lower(),
         }
 
         register_data[field] = self.faker.pystr(min_chars=length, max_chars=length)
 
         return register_data
 
-    def test_register_invalid_json(self) -> None:
+    @parametrize(
+        ('api_method',),
+        [
+            ('register',),
+            ('find',),
+        ],
+    )
+    def test_register_invalid_json(self, api_method: str) -> None:
         token = self.gen_token_client(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         client_repo_mock = Mock(ClientRepository)
         with self.app.container.client_repo.override(client_repo_mock):
-            resp = self.call_register_api('invalid json', token=token)
+            body = 'invalid json'
+            resp = self.call_register_api(body, token=token) if api_method == 'register' else self.call_find_client_api(body)
 
         cast(Mock, client_repo_mock.create).assert_not_called()
+        cast(Mock, client_repo_mock.find_by_email).assert_not_called()
 
         self.assertEqual(resp.status_code, 400)
         resp_data = json.loads(resp.get_data())
@@ -227,7 +259,7 @@ class TestClient(ParametrizedTestCase):
         token = self.gen_token_client(client_id=cast(str, self.faker.uuid4()), role=Role.ADMIN, assigned=False)
         register_data = {
             'name': self.faker.name(),
-            'prefixEmailIncidents': self.faker.email().split('@')[0],
+            'prefixEmailIncidents': self.faker.email().split('@')[0].lower(),
         }
 
         del register_data[field]
@@ -310,7 +342,7 @@ class TestClient(ParametrizedTestCase):
         cast(Mock, client_repo_mock.create).assert_called_once()
         repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
         self.assertEqual(repo_client.name, register_data['name'])
-        self.assertEqual(repo_client.email_incidents, register_data['prefixEmailIncidents'] + '@capibaras.io')
+        self.assertEqual(repo_client.email_incidents, (register_data['prefixEmailIncidents'] + '@capibaras.io').lower())
 
         self.assertEqual(resp.status_code, 201)
         resp_data = json.loads(resp.get_data())
@@ -339,14 +371,14 @@ class TestClient(ParametrizedTestCase):
 
         register_data = {
             'name': self.faker.name(),
-            'prefixEmailIncidents': self.faker.email().split('@')[0],
+            'prefixEmailIncidents': self.faker.email().split('@')[0].lower(),
         }
 
         client_repo_mock = Mock(ClientRepository)
         employee_repo_mock = Mock(EmployeeRepository)
         cast(Mock, employee_repo_mock.get).return_value = employee
         cast(Mock, client_repo_mock.create).side_effect = DuplicateEmailError(
-            register_data['prefixEmailIncidents'] + '@capibaras.io'
+            (register_data['prefixEmailIncidents'] + '@capibaras.io').lower()
         )
         with (
             self.app.container.client_repo.override(client_repo_mock),
@@ -357,7 +389,7 @@ class TestClient(ParametrizedTestCase):
         cast(Mock, client_repo_mock.create).assert_called_once()
         repo_client: Client = cast(Mock, client_repo_mock.create).call_args[0][0]
         self.assertEqual(repo_client.name, register_data['name'])
-        self.assertEqual(repo_client.email_incidents, register_data['prefixEmailIncidents'] + '@capibaras.io')
+        self.assertEqual(repo_client.email_incidents, (register_data['prefixEmailIncidents'] + '@capibaras.io').lower())
 
         self.assertEqual(resp.status_code, 409)
         resp_data = json.loads(resp.get_data())
@@ -433,3 +465,20 @@ class TestClient(ParametrizedTestCase):
 
         self.assertEqual(resp_data['code'], 404)
         self.assertEqual(resp_data['message'], 'Client not found.')
+
+    def test_find_invalid_email(self) -> None:
+        client_repo_mock = Mock(ClientRepository)
+        with self.app.container.client_repo.override(client_repo_mock):
+            body = {
+                'email': self.faker.word(),
+            }
+            resp = self.call_find_client_api(body)
+
+        cast(Mock, client_repo_mock.create).assert_not_called()
+        cast(Mock, client_repo_mock.find_by_email).assert_not_called()
+
+        self.assertEqual(resp.status_code, 400)
+        resp_data = json.loads(resp.get_data())
+
+        self.assertEqual(resp_data['code'], 400)
+        self.assertEqual(resp_data['message'], 'Invalid value for email: Not a valid email address.')
