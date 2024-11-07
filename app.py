@@ -29,6 +29,9 @@ def create_app() -> FlaskMicroservice:
     if 'JWT_ISSUER' in os.environ:
         app.container.config.jwt.issuer.from_env('JWT_ISSUER')  # pragma: no cover
 
+    if 'DOMAIN' in os.environ:
+        app.container.config.domain.from_env('DOMAIN')  # pragma: no cover
+
     if 'JWT_PRIVATE_KEY' in os.environ:
         app.container.config.jwt.private_key.from_env(
             'JWT_PRIVATE_KEY',
