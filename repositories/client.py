@@ -13,6 +13,9 @@ class ClientRepository:
     def get_all(self) -> Generator[Client, None, None]:
         raise NotImplementedError  # pragma: no cover
 
+    def find_by_email(self, email: str) -> Client | None:
+        raise NotImplementedError  # pragma: no cover
+
     def delete_all(self) -> None:
         raise NotImplementedError  # pragma: no cover
 

@@ -65,6 +65,7 @@ class CreateClient(MethodView):
         token: dict[str, Any],
         client_repo: ClientRepository = Provide[Container.client_repo],
         employee_repo: EmployeeRepository = Provide[Container.employee_repo],
+        domain: str = Provide[Container.config.domain.required()],
     ) -> Response:
         client_schema = marshmallow_dataclass.class_schema(RegisterClientBody)()
         req_json = request.get_json(silent=True)
@@ -81,7 +82,7 @@ class CreateClient(MethodView):
         client = Client(
             id=str(uuid.uuid4()),
             name=data.name,
-            email_incidents=data.prefixEmailIncidents + '@capibaras.io',
+            email_incidents=(f'{data.prefixEmailIncidents}@{domain}').lower(),
             plan=None,
         )
 
@@ -146,6 +147,36 @@ class SelectPlan(MethodView):
         return json_response(client_to_dict(client, include_plan=True), 200)
 
 
+@dataclass
+class FindByEmailBody:
+    email: str = field(metadata={'validate': [marshmallow.validate.Email()]})
+
+
+# Internal only
+@class_route(blp, '/api/v1/clients/detail')
+class FindClient(MethodView):
+    init_every_request = False
+
+    def post(self, client_repo: ClientRepository = Provide[Container.client_repo]) -> Response:
+        # Parse request body
+        find_schema = marshmallow_dataclass.class_schema(FindByEmailBody)()
+        req_json = request.get_json(silent=True)
+        if req_json is None:
+            return error_response('The request body could not be parsed as valid JSON.', 400)
+
+        try:
+            data: FindByEmailBody = find_schema.load(req_json)
+        except ValidationError as err:
+            return validation_error_response(err)
+
+        client = client_repo.find_by_email(data.email.lower())
+
+        if client is None:
+            return error_response('Client not found.', 404)
+
+        return json_response(client_to_dict(client, include_plan=True), 200)
+
+
 @class_route(blp, '/api/v1/clients/<client_id>')
 class RetrieveClient(MethodView):
     init_every_request = False
@@ -156,7 +187,9 @@ class RetrieveClient(MethodView):
 
         client = client_repo.get(client_id)
 
+        include_plan = request.args.get('include_plan', 'false').lower() == 'true'
+
         if client is None:
             return error_response('Client not found.', 404)
 
-        return json_response(client_to_dict(client), 200)
+        return json_response(client_to_dict(client, include_plan=include_plan), 200)
