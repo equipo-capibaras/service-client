@@ -97,6 +97,7 @@ data "google_iam_policy" "default" {
       data.google_service_account.backup.member,
       data.google_service_account.user.member,
       data.google_service_account.incidentquery.member,
+      data.google_service_account.incidentmodify.member,
       data.google_service_account.registroapp.member,
       data.google_service_account.registromail.member,
     ]
