@@ -137,7 +137,9 @@ class FirestoreEmployeeRepository(EmployeeRepository):
         employees_ref = cast(CollectionReference, self.db.collection('clients').document(client_id).collection('employees'))
 
         # Query the employees collection for agents
-        query = employees_ref.where('role', '==', 'agent').where('invitation_status', '==', 'accepted')
+        query = employees_ref.where(filter=FieldFilter('role', '==', 'agent')).where(  # type: ignore[no-untyped-call]
+            filter=FieldFilter('invitation_status', '==', 'accepted')  # type: ignore[no-untyped-call]
+        )
         docs = query.stream()
 
         return [self.doc_to_employee(doc) for doc in docs]

@@ -38,6 +38,11 @@ resource "google_cloud_run_v2_service" "default" {
       }
 
       env {
+        name = "DOMAIN"
+        value = local.domain
+      }
+
+      env {
         name = "JWT_ISSUER"
         value = "https://${local.domain}"
       }
@@ -93,7 +98,6 @@ data "google_iam_policy" "default" {
       data.google_service_account.user.member,
       data.google_service_account.incidentquery.member,
       data.google_service_account.registroapp.member,
-      data.google_service_account.invoice.member,
     ]
   }
 }

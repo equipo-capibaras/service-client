@@ -7,7 +7,7 @@ client_universo = Client(
     id='acfa53b4-58f3-46e8-809b-19ef52b437ed',
     name='Universo Móvel',
     plan=Plan.EMPRENDEDOR,
-    email_incidents='universo@capibaras.io',
+    email_incidents='universo',
 )
 
 employees_universo = [
@@ -138,7 +138,7 @@ client_globalcom = Client(
     id='22128c04-0c2c-4633-8317-0fffd552f7a6',
     name='GlobalCom',
     plan=Plan.EMPRESARIO,
-    email_incidents='globalcom@capibaras.io',
+    email_incidents='globalcom',
 )
 
 employees_globalcom = [
@@ -179,7 +179,7 @@ client_gigatel = Client(
     id='9a652818-342e-4771-84cf-39c20a29264d',
     name='GigaTel',
     plan=Plan.EMPRESARIO_PLUS,
-    email_incidents='gigatel@capibaras.io',
+    email_incidents='gigatel',
 )
 
 employees_gigatel = [
