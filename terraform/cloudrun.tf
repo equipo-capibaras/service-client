@@ -100,6 +100,7 @@ data "google_iam_policy" "default" {
       data.google_service_account.incidentmodify.member,
       data.google_service_account.registroapp.member,
       data.google_service_account.registromail.member,
+      data.google_service_account.invoice.member,
     ]
   }
 }
