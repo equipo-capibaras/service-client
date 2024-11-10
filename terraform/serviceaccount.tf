@@ -76,8 +76,8 @@ data "google_service_account" "registroapp" {
   depends_on = [ google_project_service.iam ]
 }
 
-# Retrieves the service account of the registroapp microservice.
-# This is defined as part of the registroapp microservice
+# Retrieves the service account of the invoice microservice.
+# This is defined as part of the invoice microservice
 # This service account is given permissions to access this microservice
 data "google_service_account" "invoice" {
   account_id   = "invoice"
