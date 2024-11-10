@@ -84,3 +84,12 @@ data "google_service_account" "invoice" {
 
   depends_on = [ google_project_service.iam ]
 }
+
+# Retrieves the service account of the registromail microservice.
+# This is defined as part of the registromail microservice
+# This service account is given permissions to access this microservice
+data "google_service_account" "registromail" {
+  account_id   = "registromail"
+
+  depends_on = [ google_project_service.iam ]
+}
