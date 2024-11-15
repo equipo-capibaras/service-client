@@ -115,9 +115,9 @@ class ClientInfo(MethodView):
         if client is None:
             return error_response('Client not found.', 404)
 
-        is_admin: bool = token['role'] == Role.ADMIN.value
+        is_admin_or_agent: bool = token['role'] == Role.ADMIN.value or token['role'] == Role.AGENT.value
 
-        return json_response(client_to_dict(client, include_plan=is_admin), 200)
+        return json_response(client_to_dict(client, include_plan=is_admin_or_agent), 200)
 
 
 @class_route(blp, '/api/v1/clients/me/plan/<plan>')
