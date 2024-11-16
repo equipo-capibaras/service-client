@@ -130,7 +130,7 @@ class TestClient(ParametrizedTestCase):
         [
             ('get', None, False),
             ('info', Role.ADMIN, True),
-            ('info', Role.AGENT, False),
+            ('info', Role.AGENT, True),
             ('info', Role.ANALYST, False),
             ('find', None, True),
         ],
