@@ -92,7 +92,7 @@ class TestEmployee(ParametrizedTestCase):
     def test_info_employee_not_found(self, api_method: str) -> None:
         token = self.gen_token_employee(
             client_id=cast(str, self.faker.uuid4()),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
             assigned=True,
         )
 
@@ -132,7 +132,7 @@ class TestEmployee(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
             invitation_status=invitation_status,
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
@@ -283,7 +283,7 @@ class TestEmployee(ParametrizedTestCase):
                 name=self.faker.name(),
                 email=self.faker.email(),
                 password=pbkdf2_sha256.hash(self.faker.password()),
-                role=self.faker.random_element(list(Role)),
+                role=cast(Role, self.faker.random_element(list(Role))),
                 invitation_status=self.faker.random_element([InvitationStatus.ACCEPTED, InvitationStatus.PENDING]),
                 invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
             )
@@ -367,7 +367,7 @@ class TestEmployee(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
             invitation_status=InvitationStatus.UNINVITED if invitation_status is None else invitation_status,
             invitation_date=datetime.now(UTC).replace(microsecond=0),
         )
@@ -444,7 +444,7 @@ class TestEmployee(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.email(),
             password=self.faker.password(),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
             invitation_status=InvitationStatus.PENDING,
             invitation_date=datetime.now(UTC),
         )
