@@ -88,7 +88,7 @@ class TestClient(ParametrizedTestCase):
     def test_info_token_missing_fields(self, missing_field: str) -> None:
         token = self.gen_token_client(
             client_id=cast(str, self.faker.uuid4()),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
         )
         del token[missing_field]
         resp = self.call_info_api_client(token)
@@ -193,7 +193,7 @@ class TestClient(ParametrizedTestCase):
             elif api_method == 'find':
                 resp = self.call_find_client_api({'email': client_email})
             else:
-                token = self.gen_token_client(client_id=client_id, role=self.faker.random_element(list(Role)))
+                token = self.gen_token_client(client_id=client_id, role=cast(Role, self.faker.random_element(list(Role))))
                 resp = self.call_info_api_client(token)
 
         if api_method == 'find':
@@ -325,7 +325,7 @@ class TestClient(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
             invitation_status=InvitationStatus.UNINVITED,
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
@@ -366,7 +366,7 @@ class TestClient(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
             invitation_status=InvitationStatus.UNINVITED,
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
@@ -406,7 +406,7 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['message'], 'Email already registered.')
 
     def test_select_plan(self) -> None:
-        new_plan: Plan = self.faker.random_element(list(Plan))
+        new_plan: Plan = cast(Plan, self.faker.random_element(list(Plan)))
 
         client = Client(
             id=cast(str, self.faker.uuid4()),

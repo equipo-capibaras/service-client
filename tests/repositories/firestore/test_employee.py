@@ -43,8 +43,8 @@ class TestEmployee(ParametrizedTestCase):
                 name=self.faker.name(),
                 email=self.faker.unique.email() if email is None else email,
                 password=pbkdf2_sha256.hash(self.faker.password()),
-                role=self.faker.random_element(list(Role)),
-                invitation_status=self.faker.random_element(list(InvitationStatus)),
+                role=cast(Role, self.faker.random_element(list(Role))),
+                invitation_status=cast(InvitationStatus, self.faker.random_element(list(InvitationStatus))),
                 invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
             )
             employees.append(employee)
@@ -156,8 +156,8 @@ class TestEmployee(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
-            invitation_status=self.faker.random_element(list(InvitationStatus)),
+            role=cast(Role, self.faker.random_element(list(Role))),
+            invitation_status=cast(InvitationStatus, self.faker.random_element(list(InvitationStatus))),
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 
@@ -187,8 +187,8 @@ class TestEmployee(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.unique.email(),
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
-            invitation_status=self.faker.random_element(list(InvitationStatus)),
+            role=cast(Role, self.faker.random_element(list(Role))),
+            invitation_status=cast(InvitationStatus, self.faker.random_element(list(InvitationStatus))),
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
         employee_dict = asdict(employee1)
@@ -203,8 +203,8 @@ class TestEmployee(ParametrizedTestCase):
             name=self.faker.name(),
             email=employee1.email,
             password=pbkdf2_sha256.hash(self.faker.password()),
-            role=self.faker.random_element(list(Role)),
-            invitation_status=self.faker.random_element(list(InvitationStatus)),
+            role=cast(Role, self.faker.random_element(list(Role))),
+            invitation_status=cast(InvitationStatus, self.faker.random_element(list(InvitationStatus))),
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
 

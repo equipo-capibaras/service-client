@@ -182,7 +182,7 @@ class TestClient(ParametrizedTestCase):
     def test_update(self) -> None:
         client = self.add_random_clients(1)[0]
 
-        client.plan = self.faker.random_element(list(Plan))
+        client.plan = cast(Plan, self.faker.random_element(list(Plan)))
         self.repo.update(client)
 
         doc = self.client.collection('clients').document(client.id).get()

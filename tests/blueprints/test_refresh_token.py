@@ -93,7 +93,7 @@ class TestAuthRefreshToken(ParametrizedTestCase):
             name=self.faker.name(),
             email=self.faker.email(),
             password=pbkdf2_sha256.hash(password),
-            role=self.faker.random_element(list(Role)),
+            role=cast(Role, self.faker.random_element(list(Role))),
             invitation_status=InvitationStatus.ACCEPTED,
             invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
         )
