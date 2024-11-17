@@ -309,6 +309,18 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['code'], 400)
         self.assertTrue(resp_data['message'].startswith(f'Invalid value for {field}:'))
 
+    def gen_random_employee(self) -> Employee:
+        return Employee(
+            id=cast(str, self.faker.uuid4()),
+            client_id=None,
+            name=self.faker.name(),
+            email=self.faker.email(),
+            password=pbkdf2_sha256.hash(self.faker.password()),
+            role=cast(Role, self.faker.random_element(list(Role))),
+            invitation_status=InvitationStatus.UNINVITED,
+            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
+        )
+
     @parametrize(
         ['field', 'length'],
         [
@@ -319,16 +331,7 @@ class TestClient(ParametrizedTestCase):
         ],
     )
     def test_register_bounds_valid(self, field: str, length: int) -> None:
-        employee = Employee(
-            id=cast(str, self.faker.uuid4()),
-            client_id=None,
-            name=self.faker.name(),
-            email=self.faker.email(),
-            password=pbkdf2_sha256.hash(self.faker.password()),
-            role=cast(Role, self.faker.random_element(list(Role))),
-            invitation_status=InvitationStatus.UNINVITED,
-            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
-        )
+        employee = self.gen_random_employee()
 
         token = self.gen_token_client(
             client_id=employee.client_id,
@@ -360,16 +363,7 @@ class TestClient(ParametrizedTestCase):
         self.assertEqual(resp_data['emailIncidents'], repo_client.email_incidents)
 
     def test_register_duplicate_email(self) -> None:
-        employee = Employee(
-            id=cast(str, self.faker.uuid4()),
-            client_id=None,
-            name=self.faker.name(),
-            email=self.faker.email(),
-            password=pbkdf2_sha256.hash(self.faker.password()),
-            role=cast(Role, self.faker.random_element(list(Role))),
-            invitation_status=InvitationStatus.UNINVITED,
-            invitation_date=self.faker.past_datetime(start_date='-30d', tzinfo=UTC),
-        )
+        employee = self.gen_random_employee()
 
         token = self.gen_token_client(
             client_id=employee.client_id,
