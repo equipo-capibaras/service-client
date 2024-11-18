@@ -10,7 +10,7 @@ marshmallow==3.23.1
 marshmallow_dataclass==8.7.1
 mypy==1.13.0
 passlib==1.7.4
-PyJWT[crypto]==2.9.0
+PyJWT[crypto]==2.10.0
 requests==2.32.3
 responses==0.25.3
 ruff==0.7.4
