@@ -39,6 +39,7 @@ class AuthBody:
 @inject
 def issue_token(
     employee: Employee,
+    aud: str | None = None,
     jwt_issuer: str = Provide[Container.config.jwt.issuer.required()],
     jwt_private_key: str = Provide[Container.config.jwt.private_key.required()],
 ) -> str:
@@ -53,7 +54,7 @@ def issue_token(
         'cid': employee.client_id,
         'email': employee.email,
         'role': employee.role.value,
-        'aud': ('' if assigned else 'unassigned_') + employee.role.value,
+        'aud': aud or (('' if assigned else 'unassigned_') + employee.role.value),
         'iat': int(time_issued.timestamp()),
         'exp': int(time_expiry.timestamp()),
     }
@@ -107,6 +108,26 @@ class AuthEmployeeRefresh(MethodView):
 
         resp = {
             'token': issue_token(employee),
+        }
+
+        return json_response(resp, 200)
+
+
+@class_route(blp, '/api/v1/auth/employee/analytics')
+class AuthEmployeeAnalytics(MethodView):
+    init_every_request = False
+
+    @requires_token
+    def post(
+        self, token: dict[str, typing.Any], employee_repo: EmployeeRepository = Provide[Container.employee_repo]
+    ) -> Response:
+        employee = employee_repo.find_by_email(token['email'])
+
+        if employee is None:
+            return error_response('Employee not found', 404)
+
+        resp = {
+            'token': issue_token(employee, aud='analytics'),
         }
 
         return json_response(resp, 200)
