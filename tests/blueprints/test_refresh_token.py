@@ -47,14 +47,21 @@ class TestAuthRefreshToken(ParametrizedTestCase):
     def tearDown(self) -> None:
         self.app.container.unwire()
 
-    def call_refresh_api(self, token: dict[str, Any]) -> TestResponse:
+    def call_auth_api(self, endpoint: str, token: dict[str, Any]) -> TestResponse:
         token_encoded = base64.urlsafe_b64encode(json.dumps(token).encode()).decode()
         return self.client.post(
-            '/api/v1/auth/employee/refresh',
+            f'/api/v1/auth/employee/{endpoint}',
             headers={'X-Apigateway-Api-Userinfo': token_encoded},
         )
 
-    def test_refresh_token_employee_not_found(self) -> None:
+    @parametrize(
+        'endpoint',
+        [
+            ('refresh',),
+            ('analytics',),
+        ],
+    )
+    def test_refresh_token_employee_not_found(self, endpoint: str) -> None:
         role = cast(Role, self.faker.random_element(list(Role)))
         token = {
             'sub': cast(str, self.faker.uuid4()),
@@ -68,7 +75,7 @@ class TestAuthRefreshToken(ParametrizedTestCase):
         cast(Mock, employee_repo_mock.find_by_email).return_value = None
 
         with self.app.container.employee_repo.override(employee_repo_mock):
-            resp = self.call_refresh_api(token)
+            resp = self.call_auth_api(endpoint, token)
 
         cast(Mock, employee_repo_mock.find_by_email).assert_called_once_with(token['email'])
 
@@ -78,13 +85,15 @@ class TestAuthRefreshToken(ParametrizedTestCase):
         self.assertEqual(resp_data['message'], 'Employee not found')
 
     @parametrize(
-        'assigned',
+        ('assigned', 'endpoint'),
         [
-            (AssignedOption.ASSIGNED,),
-            (AssignedOption.UNASSIGNED,),
+            (AssignedOption.ASSIGNED, 'refresh'),
+            (AssignedOption.UNASSIGNED, 'refresh'),
+            (AssignedOption.ASSIGNED, 'analytics'),
+            (AssignedOption.UNASSIGNED, 'analytics'),
         ],
     )
-    def test_refresh_token_success(self, assigned: AssignedOption) -> None:
+    def test_refresh_token_success(self, assigned: AssignedOption, endpoint: str) -> None:
         assigned_bool = assigned == AssignedOption.ASSIGNED
         password = self.faker.password()
         employee = Employee(
@@ -110,7 +119,7 @@ class TestAuthRefreshToken(ParametrizedTestCase):
         cast(Mock, employee_repo_mock.find_by_email).return_value = employee
 
         with self.app.container.employee_repo.override(employee_repo_mock):
-            resp = self.call_refresh_api(token)
+            resp = self.call_auth_api(endpoint, token)
 
         cast(Mock, employee_repo_mock.find_by_email).assert_called_once_with(employee.email)
 
@@ -119,7 +128,11 @@ class TestAuthRefreshToken(ParametrizedTestCase):
 
         self.assertIn('token', resp_data)
 
-        audience = ('unassigned_' if employee.client_id is None else '') + employee.role.value
+        if endpoint == 'analytics':
+            audience = 'analytics'
+        else:
+            audience = ('unassigned_' if employee.client_id is None else '') + employee.role.value
+
         decoded_token = jwt.decode(resp_data['token'], self.jwt_public_key, algorithms=['EdDSA'], audience=audience)
         self.assertEqual(decoded_token['iss'], self.jwt_issuer)
         self.assertEqual(decoded_token['sub'], employee.id)
