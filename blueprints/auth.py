@@ -44,7 +44,7 @@ def issue_token(
     jwt_private_key: str = Provide[Container.config.jwt.private_key.required()],
 ) -> str:
     time_issued = datetime.datetime.now(datetime.UTC)
-    time_expiry = time_issued + datetime.timedelta(minutes=15)
+    time_expiry = time_issued + datetime.timedelta(minutes=60)
 
     assigned = employee.client_id is not None and employee.invitation_status == InvitationStatus.ACCEPTED
 
